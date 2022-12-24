@@ -4,4 +4,6 @@ project (BBPTT)
 set (CMAKE_BINARY_DIR ${BBPTT_SOURCE_DIR}/bin)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_executable (bluebornepentest src/main.c)
+add_executable (bluebornepentest src/main.c src/logger.c)
+
+target_include_directories (bluebornepentest PRIVATE ${BBPTT_SOURCE_DIR}/include)
