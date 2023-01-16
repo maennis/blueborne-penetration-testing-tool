@@ -19,14 +19,17 @@ The BBPTT runs on a Linux server. Periodically, it will search for nearby Blueto
 ## Building
 The BBPTT is built using [CMake](https://cmake.org). Run the following commands from the project root to build the project executable:
 ```
-cd build/
-cmake ../
+cmake clean .
 make
 ```
-An executable called bluebornepentest will be created under the ./bin directory.
+An executable called bluebornepentest will be created under the ./bin directory, and the unit test executable called check_bbptt will be created under the ./tests directory.
 
 ## Running
 The BBPTT can be run as follows:
 ```
 ./bin/bluebornepentest
+```
+Unit tests can be run as follows:
+```
+./tests/check_bbptt
 ```
