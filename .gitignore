@@ -1,6 +1,7 @@
 # Build Files
 bin/*
-build/*
+*.a
+*.so
 
 # CMake Files
 CMakeLists.txt.user
@@ -14,3 +15,6 @@ install_manifest.txt
 compile_commands.json
 CTestTestfile.cmake
 _deps
+
+# Generated config header file
+config.h
