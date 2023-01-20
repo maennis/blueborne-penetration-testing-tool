@@ -8,6 +8,7 @@
 #define BLUETOOTHADDRESSLEN 19
 #define DEVICENAMELEN       248
 #define INQUIRYLEN          10 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
+#define MAXNUMBTRESP        255
 
 struct bluetooth_connection_info
 {
