@@ -9,5 +9,5 @@ set(TEST_SOURCES
 )
 
 add_executable(check_bbptt ${TEST_SOURCES})
-target_link_libraries(check_bbptt bbptt ${CHECK_LIBRARIES})
+target_link_libraries(check_bbptt bbptt ${CHECK_LIBRARIES} bluetooth)
 target_link_libraries(check_bbptt m pthread check_pic rt subunit)
