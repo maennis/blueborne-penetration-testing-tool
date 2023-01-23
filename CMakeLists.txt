@@ -80,6 +80,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(LIB_SOURCES
 ${BBPTT_SOURCE_DIR}/src/logger.c
 ${BBPTT_SOURCE_DIR}/src/bluetooth.c
+${BBPTT_SOURCE_DIR}/src/utils.c
 )
 
 set(MAIN_SOURCES
@@ -90,6 +91,7 @@ set(HEADERS
   ${CONFIG_HEADER}
   ${BBPTT_SOURCE_DIR}/src/logger.h
   ${BBPTT_SOURCE_DIR}/src/bluetooth.h
+  ${BBPTT_SOURCE_DIR}/src/utils.h
 )
 
 add_library(bbptt STATIC ${LIB_SOURCES} ${HEADERS})
