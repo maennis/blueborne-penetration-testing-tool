@@ -18,3 +18,9 @@ _deps
 
 # Generated config header file
 config.h
+
+# Test build files
+tests/check_bbptt
+
+# IDE Files
+.vscode/*

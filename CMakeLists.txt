@@ -79,6 +79,7 @@ set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 
 set(LIB_SOURCES
 ${BBPTT_SOURCE_DIR}/src/logger.c
+${BBPTT_SOURCE_DIR}/src/bluetooth.c
 )
 
 set(MAIN_SOURCES
@@ -88,12 +89,13 @@ ${BBPTT_SOURCE_DIR}/src/main.c
 set(HEADERS 
   ${CONFIG_HEADER}
   ${BBPTT_SOURCE_DIR}/src/logger.h
+  ${BBPTT_SOURCE_DIR}/src/bluetooth.h
 )
 
 add_library(bbptt STATIC ${LIB_SOURCES} ${HEADERS})
 
 add_executable(bluebornepentest ${HEADERS} ${MAIN_SOURCES})
-target_link_libraries(bluebornepentest bbptt)
+target_link_libraries(bluebornepentest bbptt bluetooth)
 
 install(TARGETS bbptt
   RUNTIME DESTINATION bin
