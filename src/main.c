@@ -46,7 +46,13 @@ int main(int argc, char**argv) {
 
     if ((num_allowlist = load_allowlist(ALLOWLIST, allowed_addresses)) < 0)
     {
-        systemlog(LOG_AUTH | LOG_ERR, "Error reading allowlist. Program Exiting");
+        systemlog(LOG_AUTH | LOG_ERR, "Error reading allowlist %s. Program Exiting", ALLOWLIST);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!validate_allowlist(allowed_addresses, num_allowlist))
+    {
+        systemlog(LOG_AUTH | LOG_ERR, "Invalid allowlist %s. Program Exiting", ALLOWLIST);
         exit(EXIT_FAILURE);
     }
 
