@@ -7,21 +7,23 @@
 // Custom Imports
 #include "bluetooth.h"
 #include "logger.h"
+#include "utils.h"
 
+#define ALLOWLIST       "allowlist.txt"
 #define POLL_INTERVAL   30 // In seconds
 #define PROGRAM_NAME    "bluebornepentesttool"
 #define TRUE            1
 
 _Noreturn void cleanup(int signal);
-void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN]);
+void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
 void set_sigaction(void);
 void setup(void);
 
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
-    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], btaddr_s[BLUETOOTHADDRESSLEN] = { 0 };
-    int i, responses, num_processed_bt_address = 0;
+    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], **allowed_addresses;
+    int i, responses, num_allowlist, num_processed_bt_address = 0;
     setup();
 
     if ((bt_info.device_id = get_bluetooth_device_id()) < 0)
@@ -35,9 +37,25 @@ int main(int argc, char**argv) {
         systemlog(LOG_AUTH | LOG_ERR, "Cannot open HCI socket. Program Exiting");
         exit(EXIT_FAILURE);
     }
-
+    // Allocate memory
     bt_address_list = (bdaddr_t *) malloc(sizeof(bdaddr_t) * MAXNUMBTRESP);
     memset(processed_bt_addresses, 0, MAXNUMBTRESP * BLUETOOTHADDRESSLEN);
+    allowed_addresses = (char **) malloc(sizeof(char *) * MAXALLOWLISTSIZE);
+    for (i = 0; i < MAXALLOWLISTSIZE; i++)
+        allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
+
+    if ((num_allowlist = load_allowlist(ALLOWLIST, allowed_addresses)) < 0)
+    {
+        systemlog(LOG_AUTH | LOG_ERR, "Error reading allowlist %s. Program Exiting", ALLOWLIST);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!validate_allowlist(allowed_addresses, num_allowlist))
+    {
+        systemlog(LOG_AUTH | LOG_ERR, "Invalid allowlist %s. Program Exiting", ALLOWLIST);
+        exit(EXIT_FAILURE);
+    }
+
     while(TRUE)
     {
         systemlog(LOG_AUTH | LOG_INFO, "Begining HCI inquiry");
@@ -46,11 +64,17 @@ int main(int argc, char**argv) {
         for (i = 0; i < responses; i++)
         {
             memcpy(&btaddr, bt_address_list + i, sizeof(bdaddr_t));
-            process_device(&btaddr, &num_processed_bt_address, processed_bt_addresses);
+            process_device(&btaddr, &num_processed_bt_address, processed_bt_addresses, num_allowlist, allowed_addresses);
         }
         systemlog(LOG_AUTH | LOG_INFO, "Finished processing devices", responses);
         sleep(POLL_INTERVAL);
     }
+
+    free(bt_address_list);
+    for (i = 0; i < MAXALLOWLISTSIZE; i++);
+        free(allowed_addresses[i]);
+    free(allowed_addresses);
+
     return 0;
 }
 
@@ -61,7 +85,7 @@ _Noreturn void cleanup(int signal)
     exit(EXIT_SUCCESS);
 }
 
-void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN])
+void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
 {
     int i;
     char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 };
@@ -69,9 +93,14 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
     for (i = 0; i < *processed_bt_addresses; i++)
         if (strcmp(btaddr_s, processed_addresses[i]) == 0)
             return;
-    systemlog(LOG_AUTH | LOG_INFO, "Processing device with address %s address", btaddr_s);
     strcpy(processed_addresses[*processed_bt_addresses], btaddr_s);
     (*processed_bt_addresses)++;
+    if (!is_in_allowlist(btaddr_s, allowed_addresses, num_allowlist))
+    {
+        systemlog(LOG_AUTH | LOG_INFO, "Device with address %s not in allowlist.  Skipping.", btaddr_s);
+        return;
+    }
+    systemlog(LOG_AUTH | LOG_INFO, "Processing device with address %s.", btaddr_s);
 }
 
 void set_sigaction(void)

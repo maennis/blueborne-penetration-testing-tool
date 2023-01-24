@@ -15,6 +15,7 @@ The BBPTT runs on a Linux server. Periodically, it will search for nearby Blueto
 - [Check](https://libcheck.github.io/check/) - Unit testing framework for C.
 
 ## Features
+- **Allowlisting** - Devices located in the allowlist file will processed.  Other devices will be ignored.  The allowlist should be located next to the executable in a file called allowlist.txt. Each address should be placed on a newline.  All hex letters should be in uppercase.
 
 ## Building
 The BBPTT is built using [CMake](https://cmake.org). Run the following commands from the project root to build the project executable:
