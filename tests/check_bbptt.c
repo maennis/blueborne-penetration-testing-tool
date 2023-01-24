@@ -49,13 +49,13 @@ END_TEST
 
 START_TEST(test_load_allowlist)
 {
-    int num_addresses, expected_addresses = 3;
+    int num_addresses, expected_addresses = 2;
     char **allowed_addresses;
-    allowed_addresses =  (char **) malloc(sizeof(char *) * num_addresses);
-    for (int i = 0; i < num_addresses; i++)
+    allowed_addresses =  (char **) malloc(sizeof(char *) * expected_addresses);
+    for (int i = 0; i < expected_addresses; i++)
         allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
     num_addresses = load_allowlist(VALID_ALLOWLIST_FILE, allowed_addresses);
-    for (int i = 0; i < num_addresses; i++)
+    for (int i = 0; i < expected_addresses; i++)
         free(allowed_addresses[i]);
     free(allowed_addresses);
     ck_assert_int_eq(num_addresses, expected_addresses); 
@@ -66,11 +66,11 @@ START_TEST(test_load_allowlist_2)
 {
     int num_addresses, expected_addresses = 5;
     char **allowed_addresses;
-    allowed_addresses =  (char **) malloc(sizeof(char *) * num_addresses);
-    for (int i = 0; i < num_addresses; i++)
+    allowed_addresses =  (char **) malloc(sizeof(char *) * expected_addresses);
+    for (int i = 0; i < expected_addresses; i++)
         allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
     num_addresses = load_allowlist(VALID_ALLOWLIST_FILE_2, allowed_addresses);
-    for (int i = 0; i < num_addresses; i++)
+    for (int i = 0; i < expected_addresses; i++)
         free(allowed_addresses[i]);
     free(allowed_addresses);
     ck_assert_int_eq(num_addresses, expected_addresses); 
@@ -156,6 +156,25 @@ START_TEST(test_not_in_allowlist)
 }
 END_TEST
 
+START_TEST(test_allowlist_e2e)
+{
+    int num_addresses, is_valid, in_allowlist, expected_addresses = 2;
+    char **allowed_addresses;
+    allowed_addresses =  (char **) malloc(sizeof(char *) * expected_addresses);
+    for (int i = 0; i < expected_addresses; i++)
+        allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
+    num_addresses = load_allowlist(VALID_ALLOWLIST_FILE, allowed_addresses);
+    ck_assert_int_eq(num_addresses, expected_addresses);
+    is_valid = validate_allowlist(allowed_addresses, num_addresses);
+    ck_assert_int_eq(is_valid, 1);
+    in_allowlist = is_in_allowlist("00:17:06:EA:2D:1D", allowed_addresses, num_addresses);
+    ck_assert_int_eq(in_allowlist, 1);
+    for (int i = 0; i < expected_addresses; i++)
+        free(allowed_addresses[i]);
+    free(allowed_addresses);
+}
+END_TEST
+
 Suite * bbptt_suite(void)
 {
     Suite *s;
@@ -168,7 +187,8 @@ Suite * bbptt_suite(void)
             *tc_validate_valid_allowlist,
             *tc_validate_invalid_allowlist,
             *tc_is_in_allowlist,
-            *tc_not_in_allowlist;
+            *tc_not_in_allowlist,
+            *tc_allowlist_e2e;
     s = suite_create("BBPTT");
 
     // Set up
@@ -184,6 +204,7 @@ Suite * bbptt_suite(void)
     tc_validate_invalid_allowlist = tcase_create("is_valid_allowlist invalid");
     tc_is_in_allowlist = tcase_create("is_in_allowlist true");
     tc_not_in_allowlist = tcase_create("is_in_allowlist false");
+    tc_allowlist_e2e = tcase_create("allowlist e2e");
 
     tcase_add_test(tc_setup, test_logger_run);
     suite_add_tcase(s, tc_setup);
@@ -205,6 +226,8 @@ Suite * bbptt_suite(void)
     suite_add_tcase(s, tc_is_in_allowlist);
     tcase_add_test(tc_not_in_allowlist, test_not_in_allowlist);
     suite_add_tcase(s, tc_not_in_allowlist);
+    tcase_add_test(tc_allowlist_e2e, test_allowlist_e2e);
+    suite_add_tcase(s, tc_allowlist_e2e);
 
     return s;
 }

@@ -18,6 +18,8 @@ struct bluetooth_connection_info
 
 int get_bluetooth_device_id(void);
 
+int is_valid_address(char *address);
+
 int open_bluetooth_device(const int device_id);
 
 int make_hci_inquiry(bdaddr_t **addr_list, const struct bluetooth_connection_info *btinfo);

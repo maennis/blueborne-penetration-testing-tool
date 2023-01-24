@@ -8,6 +8,11 @@ int get_bluetooth_device_id(void)
     return hci_get_route(NULL);
 }
 
+int is_valid_address(char *address)
+{
+    return bachk(address) >= 0;
+}
+
 int open_bluetooth_device(const int device_id)
 {
     return hci_open_dev(device_id);
