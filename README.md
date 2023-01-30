@@ -34,3 +34,28 @@ Unit tests can be run as follows:
 ```
 ./tests/check_bbptt
 ```
+## Docker
+Dockerfiles are provided with the BBPTT in order to facilitate the creation and set up of test environments that are still vulnerable to the BlueBorne exploits.
+
+### Prerequisites
+- [Docker](https://www.docker.com/) - A set of Platform-as-a-Service products that use OS-level virtualization to deliver applications and environemnts.
+
+### Linux / Ubuntu
+In order to create an Ububtu testing environment, the bluetooth service on the host machine must be stopped.  It is important to stop the service directly using the `kill` command and not through systemctl or systemd.  Shutting down the service manager can shut down the Bluetooth adapter and make it unavailable to the container.  This can be done using the following commands:
+```
+# Find the PID of the Bluetooth service
+sudo ps aux | grep bluetoothd
+sudo kill -9 <bluetoothd pid>
+```
+Once the service has been terminated, the docker container can be built and run using the following commands:
+```
+cd ./docker/ubuntu
+
+# Build the image
+docker build -t bbptt-env-ubuntu --no-cache=true .
+
+# Run the container in interactive mode
+docker run --rm --net=host --privileged -it bbptt-env-ubuntu:latest
+
+```
+The `./docker/ubuntu/docker_entrypoint.sh` script starts the bluetooth service on the Ubuntu container.
