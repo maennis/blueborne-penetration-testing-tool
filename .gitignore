@@ -24,3 +24,5 @@ tests/check_bbptt
 
 # IDE Files
 .vscode/*
+.idea/*
+
