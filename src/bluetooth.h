@@ -9,13 +9,7 @@
 #include <sys/socket.h>
 
 #define BLUETOOTHADDRESSLEN 19
-#define DEVICENAMELEN       248
-#define INQUIRYLEN          15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
 #define MAXNUMBTRESP        255
-#define MTU                 50
-#define SDPPDUATTRLEN       7
-#define SDPPDUBASELEN       12
-#define SDPSERVICELEN       2
 
 struct bluetooth_connection_info
 {
@@ -23,13 +17,21 @@ struct bluetooth_connection_info
     int hci_socket;
 };
 
-typedef struct 
+typedef struct
 {
     uint8_t dtd;
     uint8_t size;
     uint8_t data_type;
     uint16_t data_value;
 } __attribute__((packed)) sdp_data_uuid16_t;
+
+typedef struct 
+{
+    uint8_t dtd;
+    uint8_t size;
+    uint8_t data_type;
+    uint32_t data_value;
+} __attribute__((packed)) sdp_data_uuid32_t;
 
 // Copied from BlueZ src/sdpd-request.c
 typedef struct {
@@ -40,7 +42,9 @@ typedef struct {
     } cStateValue;
 } sdp_cont_state_bluez_t;
 
-char * create_sdp_svs_search_pdu(uint16_t service, char *continuation, size_t continuation_len);
+char * create_sdp_svc_attr_search_pdu(uint16_t service, char *continuation, size_t continuation_len);
+
+char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t continuation_len);
 
 int get_bluetooth_device_id(void);
 
