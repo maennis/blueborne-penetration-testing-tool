@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 
 #define BLUETOOTHADDRESSLEN 19
+#define CVE_CHECK_ERR       -1
 #define MAXNUMBTRESP        255
 
 struct bluetooth_connection_info
