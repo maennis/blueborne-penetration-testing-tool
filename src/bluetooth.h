@@ -42,9 +42,13 @@ typedef struct {
     } cStateValue;
 } sdp_cont_state_bluez_t;
 
+void cont_state_to_char(sdp_cont_state_bluez_t *cont_state, char *dest, uint8_t cont_len);
+
 char * create_sdp_svc_attr_search_pdu(uint16_t service, char *continuation, size_t continuation_len);
 
 char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t continuation_len);
+
+int extract_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu);
 
 int get_bluetooth_device_id(void);
 

