@@ -97,7 +97,7 @@ _Noreturn void cleanup(int signal)
 
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
 {
-    int i;
+    int i, res, patched = 1;
     char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 };
     ba2str(address, btaddr_s);
     for (i = 0; i < *processed_bt_addresses; i++)
@@ -111,6 +111,16 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
         return;
     }
     systemlog(LOG_AUTH | LOG_INFO, "Processing device with address %s.", btaddr_s);
+    res = is_vulnerable_to_cve_2017_1000250(address);
+    if (res)
+    {
+        patched = 0;
+        systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to CVE-2017-1000250", btaddr_s);
+    }
+    if (patched)
+    {
+        systemlog(LOG_AUTH | LOG_INFO, "Device with address %s is not vulnerable to any tested exploits.", btaddr_s);
+    }
 }
 
 void set_sigaction(void)
