@@ -8,9 +8,22 @@
 #include <bluetooth/sdp.h>
 #include <sys/socket.h>
 
-#define BLUETOOTHADDRESSLEN 19
-#define CVE_CHECK_ERR       -1
-#define MAXNUMBTRESP        255
+#define BLUETOOTHADDRESSLEN     19
+#define CVE_CHECK_ERR           -1
+#define DEVICENAMELEN           248
+#define INQUIRYLEN              15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
+#define MAXNUMBTRESP            255
+#define MTU                     50
+#define SDP_CONT_STATE_LEN      8
+#define SDP_PDU_SVC_PARAM_LEN   7
+#define SDP_PDU_ATTR_PARAM_LEN  15
+#define SVC_L2CAP               0x0100
+#define SDP_SVC_ATTR_MASK       0x0000ffff
+#define TID_SEQ_UINT8           0x35
+#define TID_UINT64              0x0a
+#define TID_UUID_16             0x19
+#define TRANSACTION_ID          0x0000
+
 
 struct bluetooth_connection_info
 {

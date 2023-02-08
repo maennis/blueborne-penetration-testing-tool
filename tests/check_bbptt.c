@@ -1,6 +1,7 @@
 #include <check.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <time.h>
 #include "../src/logger.h"
 #include "../src/bluetooth.h"
 #include "../src/utils.h"
@@ -175,6 +176,49 @@ START_TEST(test_allowlist_e2e)
 }
 END_TEST
 
+START_TEST(test_create_svc_attr_search_pdu_no_cont)
+{
+    char *pdu;
+    uint8_t cont_len = 0x00, pdu_id = SDP_SVC_SEARCH_ATTR_REQ;
+    sdp_pdu_hdr_t *pdu_header;
+    size_t len = SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t);
+
+    pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, 0x00, cont_len);
+    // Check header values
+    pdu_header = (sdp_pdu_hdr_t *) pdu;
+    ck_assert_uint_eq(pdu_header->pdu_id, pdu_id);
+    ck_assert_uint_eq(pdu_header->plen, htons(SDP_PDU_ATTR_PARAM_LEN));
+
+    // Check the continuation state is set to null
+    ck_assert_mem_eq(&(pdu[len - 1]), &cont_len, 1);
+}
+END_TEST
+
+START_TEST(test_create_svc_attr_search_pdu_cont)
+{
+    char *pdu, cont_state_s[SDP_CONT_STATE_LEN + 1];
+    uint8_t cont_len = SDP_CONT_STATE_LEN, pdu_id = SDP_SVC_SEARCH_ATTR_REQ;
+    sdp_pdu_hdr_t *pdu_header;
+    size_t len = SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t);
+    sdp_cont_state_bluez_t cont_state = { 0 };
+
+    // Create continuation state
+    cont_state.timestamp = (uint32_t) time(NULL);
+    cont_state.cStateValue.lastIndexSent = 0x1111;
+    // Convert continuation state to bytes
+    cont_state_to_char(&cont_state, cont_state_s, cont_len);
+
+    pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, cont_state_s, cont_len);
+    // Check header values
+    pdu_header = (sdp_pdu_hdr_t *) pdu;
+    ck_assert_uint_eq(pdu_header->pdu_id, pdu_id);
+    ck_assert_uint_eq(pdu_header->plen, htons(SDP_PDU_ATTR_PARAM_LEN + cont_len));
+
+    // Check the continuation state matches the string that was created
+    ck_assert_mem_eq(&(pdu[len - 1]), cont_state_s, cont_len);
+}
+END_TEST
+
 Suite * bbptt_suite(void)
 {
     Suite *s;
@@ -188,7 +232,9 @@ Suite * bbptt_suite(void)
             *tc_validate_invalid_allowlist,
             *tc_is_in_allowlist,
             *tc_not_in_allowlist,
-            *tc_allowlist_e2e;
+            *tc_allowlist_e2e,
+            *tc_create_svc_attr_search,
+            *tc_create_svc_attr_search_cont;
     s = suite_create("BBPTT");
 
     // Set up
@@ -205,6 +251,8 @@ Suite * bbptt_suite(void)
     tc_is_in_allowlist = tcase_create("is_in_allowlist true");
     tc_not_in_allowlist = tcase_create("is_in_allowlist false");
     tc_allowlist_e2e = tcase_create("allowlist e2e");
+    tc_create_svc_attr_search = tcase_create("create sdp svc attr search pdu");
+    tc_create_svc_attr_search_cont = tcase_create("create sdp svc attr search cont pdu");
 
     tcase_add_test(tc_setup, test_logger_run);
     suite_add_tcase(s, tc_setup);
@@ -228,6 +276,10 @@ Suite * bbptt_suite(void)
     suite_add_tcase(s, tc_not_in_allowlist);
     tcase_add_test(tc_allowlist_e2e, test_allowlist_e2e);
     suite_add_tcase(s, tc_allowlist_e2e);
+    tcase_add_test(tc_create_svc_attr_search, test_create_svc_attr_search_pdu_no_cont);
+    suite_add_tcase(s, tc_create_svc_attr_search);
+    tcase_add_test(tc_create_svc_attr_search_cont, test_create_svc_attr_search_pdu_cont);
+    suite_add_tcase(s, tc_create_svc_attr_search_cont);
 
     return s;
 }

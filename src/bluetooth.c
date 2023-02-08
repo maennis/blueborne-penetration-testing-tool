@@ -5,18 +5,6 @@
 
 #include "bluetooth.h"
 
-#define DEVICENAMELEN           248
-#define INQUIRYLEN              15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
-#define MTU                     50
-#define SDP_PDU_SVC_PARAM_LEN   7
-#define SDP_PDU_ATTR_PARAM_LEN  15
-#define SDP_SVC_ATTR_MASK       0x0000ffff
-#define SVC_L2CAP               0x0100
-#define TID_SEQ_UINT8           0x35
-#define TID_UINT64              0x0a
-#define TID_UUID_16             0x19
-#define TRANSACTION_ID          0x0000
-
 void cont_state_to_char(sdp_cont_state_bluez_t *cont_state, char *dest, uint8_t cont_len)
 {
     memset(dest, 0, cont_len + 1);
