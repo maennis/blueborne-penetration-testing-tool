@@ -196,8 +196,8 @@ END_TEST
 
 START_TEST(test_create_svc_attr_search_pdu_cont)
 {
-    char *pdu, cont_state_s[SDP_CONT_STATE_LEN + 1];
-    uint8_t cont_len = SDP_CONT_STATE_LEN, pdu_id = SDP_SVC_SEARCH_ATTR_REQ;
+    char *pdu, cont_state_s[SDP_BLUEZ_CONT_STATE_LEN + 1];
+    uint8_t cont_len = SDP_BLUEZ_CONT_STATE_LEN, pdu_id = SDP_SVC_SEARCH_ATTR_REQ;
     sdp_pdu_hdr_t *pdu_header;
     size_t len = SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t);
     sdp_cont_state_bluez_t cont_state = { 0 };
