@@ -180,19 +180,20 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
     if (read(sd, buf, MTU) < 0)
         return CVE_CHECK_ERR;
 
-    // Extract continuation state
+    // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
+    // stack that is not vulnerable
     if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) < 0)
-        return CVE_CHECK_ERR;
+        return 0;
     
     free(pdu);
 
     // Create a new service search PDU directed at a different service with the same continuation state
     pdu = create_sdp_svc_search_pdu(SVC_SDP, cont_state, continuation_len);
 
-    if (write(sd, pdu, SDP_PDU_SVC_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + continuation_len) < 0)
-        return CVE_CHECK_ERR * 7;
+    if (write(sd, pdu, SDP_PDU_SVC_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + continuation_len) == UINT8_ERR)
+        return CVE_CHECK_ERR;
     if (read(sd, buf, MTU) < 0)
-        return CVE_CHECK_ERR * 8;
+        return CVE_CHECK_ERR;
 
     pdu_header = (sdp_pdu_hdr_t *) buf;
 
@@ -236,9 +237,10 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     // Wait for fragmented response
     if (read(sd, buf, MTU) < 0)
         return CVE_CHECK_ERR;
-    // Extract continuation state
-    if ((continuation_len = extract_bluez_cont_state_from_sdp(&cont_state, buf)) < 0)
-        return CVE_CHECK_ERR;
+    // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
+    // stack that is not vulnerable
+    if ((continuation_len = extract_bluez_cont_state_from_sdp(&cont_state, buf)) == UINT8_ERR)
+        return 0;
 
     // Alter the last index of bytes the server sent
     cont_state.cStateValue.lastIndexSent = 0xffff;

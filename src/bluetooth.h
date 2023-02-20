@@ -25,7 +25,7 @@
 #define TID_UINT64                  0x0a
 #define TID_UUID_16                 0x19
 #define TRANSACTION_ID              0x0000
-
+#define UINT8_ERR                  255
 
 struct bluetooth_connection_info
 {
