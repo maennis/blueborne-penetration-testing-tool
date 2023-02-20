@@ -153,8 +153,9 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
     struct sockaddr_l2 addr = { 0 };
     int sd;
     uint8_t continuation_len = 0;
-    int16_t mtu = MTU;
+    int16_t mtu = MTU, svc_search_rsp = SDP_SVC_SEARCH_RSP;
     char *pdu, cont_state[3] = { 0 }, buf[MTU] = { 0 };
+    sdp_pdu_hdr_t *pdu_header;
     
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
@@ -193,7 +194,14 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
     if (read(sd, buf, MTU) < 0)
         return CVE_CHECK_ERR * 8;
 
-    return 0;
+    pdu_header = (sdp_pdu_hdr_t *) buf;
+
+    // Cleanup
+    free(pdu);
+    close(sd);
+
+    // If the response is a SDP_SVC_SEARCH_RSP PDU, the device is vulnerable
+    return (pdu_header->pdu_id != svc_search_rsp) ? 0 : 1;
 }
 
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
