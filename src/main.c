@@ -117,6 +117,12 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
         patched = 0;
         systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to CVE-2017-1000250", btaddr_s);
     }
+    res = is_vulnerable_to_cve_2017_0785(address);
+    if (res)
+    {
+        patched = 0;
+        systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to CVE-2017-0785", btaddr_s);
+    }
     if (patched)
     {
         systemlog(LOG_AUTH | LOG_INFO, "Device with address %s is not vulnerable to any tested exploits.", btaddr_s);
