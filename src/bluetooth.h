@@ -2,6 +2,7 @@
 #define _BLUETOOTH_H_
 
 #include <bluetooth/bluetooth.h>
+#include <bluetooth/bnep.h>
 #include <bluetooth/hci.h>
 #include <bluetooth/hci_lib.h>
 #include <bluetooth/l2cap.h>
@@ -9,6 +10,7 @@
 #include <sys/socket.h>
 
 #define BLUETOOTHADDRESSLEN         19
+#define BNEP_CONTROL_W_EXTENSION    0x81
 #define CVE_CHECK_ERR               -1
 #define DEVICENAMELEN               248
 #define INQUIRYLEN                  15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
@@ -32,6 +34,14 @@ struct bluetooth_connection_info
     int device_id;
     int hci_socket;
 };
+
+typedef struct
+{
+    uint8_t type;
+    uint8_t ctl_type;
+    uint8_t len;
+    char data[8];
+} __attribute__((packed)) bnep_overflow_extension_packet;
 
 typedef struct
 {
@@ -73,6 +83,8 @@ int get_bluetooth_device_id(void);
 int is_valid_address(char *address);
 
 int is_vulnerable_to_cve_2017_0785(bdaddr_t *target);
+
+int is_vulnerable_to_cve_2017_0781(bdaddr_t *target);
 
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target);
 
