@@ -20,6 +20,11 @@ void set_sigaction(void);
 void setup(void);
 int setup_allowlist(char **allowed_addresses, char* allowlist_filename);
 
+const cve_check VULNERABILITIES[] = {
+    { .name = "CVE-2017-1000250", .check = &is_vulnerable_to_cve_2017_1000250 },
+    { .name = "CVE-2017-7085", .check = &is_vulnerable_to_cve_2017_0785 }
+};
+
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
@@ -111,17 +116,18 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
         return;
     }
     systemlog(LOG_AUTH | LOG_INFO, "Processing device with address %s.", btaddr_s);
-    res = is_vulnerable_to_cve_2017_1000250(address);
-    if (res)
+    for (i = 0; i < NUM_VULNERABILITIES; i++)
     {
-        patched = 0;
-        systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to CVE-2017-1000250", btaddr_s);
-    }
-    res = is_vulnerable_to_cve_2017_0785(address);
-    if (res)
-    {
-        patched = 0;
-        systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to CVE-2017-0785", btaddr_s);
+        res = VULNERABILITIES[i].check(address);
+        if (res < 0)
+        {
+            systemlog(LOG_AUTH | LOG_INFO, "Error checking device with address %s for %s.", btaddr_s, VULNERABILITIES[i].name);
+        }
+        else if (res > 0)
+        {
+            patched = 0;
+            systemlog(LOG_AUTH | LOG_ALERT, "Device with address %s is vulnerable to %s", btaddr_s, VULNERABILITIES[i].name);
+        }
     }
     if (patched)
     {
