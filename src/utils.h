@@ -1,7 +1,19 @@
 #ifndef _UTILS_H
 #define _UTILS_H
 
+#include "bluetooth.h"
+
 #define MAXALLOWLISTSIZE    32
+#define MAXCVENAMESIZE      17
+#define NUM_VULNERABILITIES 2
+
+typedef int (*cve_vulnerability_check)(bdaddr_t *address);
+
+typedef struct
+{
+    char name[MAXCVENAMESIZE];
+    cve_vulnerability_check check;
+} cve_check;
 
 int load_allowlist(char *filename, char **allowed_addresses);
 
