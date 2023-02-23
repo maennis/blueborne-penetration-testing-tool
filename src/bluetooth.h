@@ -11,6 +11,8 @@
 
 #define BLUETOOTHADDRESSLEN         19
 #define BNEP_CONTROL_W_EXTENSION    0x81
+#define BNEP_OVERFLOW_PAYLOAD_LEN   8
+#define BNEP_OVERFLOW_LOOP_LIMIT    1000
 #define CVE_CHECK_ERR               -1
 #define DEVICENAMELEN               248
 #define INQUIRYLEN                  15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
@@ -34,14 +36,6 @@ struct bluetooth_connection_info
     int device_id;
     int hci_socket;
 };
-
-typedef struct
-{
-    uint8_t type;
-    uint8_t ctl_type;
-    uint8_t len;
-    char data[8];
-} __attribute__((packed)) bnep_overflow_extension_packet;
 
 typedef struct
 {
