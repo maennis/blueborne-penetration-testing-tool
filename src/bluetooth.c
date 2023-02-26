@@ -182,7 +182,7 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
 
     // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
     // stack that is not vulnerable
-    if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) < 0)
+    if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) == UINT8_ERR)
         return 0;
     
     free(pdu);
