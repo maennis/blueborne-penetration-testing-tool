@@ -10,7 +10,10 @@
 #include <sys/socket.h>
 
 #define BLUETOOTHADDRESSLEN         19
+#define BNEP_BUFFER_LEN             255
 #define BNEP_CONTROL_W_EXTENSION    0x81
+#define BNEP_ETH_CMP_W_EXTENSION    0x82
+#define BNEP_ETH_OVERFLOW_LEN       6
 #define BNEP_OVERFLOW_PAYLOAD_LEN   8
 #define BNEP_OVERFLOW_LOOP_LIMIT    1000
 #define CVE_CHECK_ERR               -1
@@ -29,7 +32,7 @@
 #define TID_UINT64                  0x0a
 #define TID_UUID_16                 0x19
 #define TRANSACTION_ID              0x0000
-#define UINT8_ERR                  255
+#define UINT8_ERR                   255
 
 struct bluetooth_connection_info
 {
@@ -79,6 +82,8 @@ int is_valid_address(char *address);
 int is_vulnerable_to_cve_2017_0785(bdaddr_t *target);
 
 int is_vulnerable_to_cve_2017_0781(bdaddr_t *target);
+
+int is_vulnerable_to_cve_2017_0782(bdaddr_t *target);
 
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target);
 

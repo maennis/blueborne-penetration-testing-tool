@@ -22,8 +22,7 @@ int setup_allowlist(char **allowed_addresses, char* allowlist_filename);
 
 const cve_check VULNERABILITIES[] = {
     { .name = "CVE-2017-1000250", .check = &is_vulnerable_to_cve_2017_1000250 },
-    { .name = "CVE-2017-7085", .check = &is_vulnerable_to_cve_2017_0785 },
-    { .name = "CVE-2017-7081", .check = &is_vulnerable_to_cve_2017_0781 }
+    { .name = "CVE-2017-7085", .check = &is_vulnerable_to_cve_2017_0785 }
 };
 
 int main(int argc, char**argv) {
