@@ -17,6 +17,26 @@ The BBPTT runs on a Linux server. Periodically, it will search for nearby Blueto
 ## Features
 - **Allowlisting** - Devices located in the allowlist file will processed.  Other devices will be ignored.  The path to the allowlist is passed in as a command line option with the `-a` flag. Each address should be placed on a newline.  All hex letters should be in uppercase.
 
+## Set Up
+Two changes need to be made to Bluetooth settings on the machine running the BBPTT to ensure that the following vulnerabilities are tested:
+- CVE-2017-0781
+- CVE-2017-0782
+- CVE-2017-0783
+- CVE-2017-8628
+> **WARNING**: These changes will make the device running the BBPTT less secure and should be reversed when not running the tool.
+
+First, the Bluetooth service needs to enable Just Works pairing with Bluetooth.  This can be done by:
+1. Opening the configuration file found at `/etc/bluetooth/main.conf`.
+2. Uncomment the `# JustWorksRepairing` option.
+3. Set the value to `JustWorksRepairing = true` or `JustWorksRepairing = always` depending on the installed version of bluez.
+4. Restart the Bluetooth service by running `sudo systemctl restart bluetooth`.
+
+Next, the host machine needs to configure its Bluetooth agent to respond to I/O capability requests with `NoInputNoOutput`.  To do this using the `bluetoothctl` tool, run the following commands:
+```
+# sudo bluetoothctl
+[bluetooth]# agent off
+[bluetooth]# agent NoInputNoOutput
+```
 ## Building
 The BBPTT is built using [CMake](https://cmake.org). Run the following commands from the project root to build the project executable:
 ```
