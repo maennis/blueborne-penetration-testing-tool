@@ -3,15 +3,14 @@
 
 #include "bluetooth.h"
 
-#define MAXALLOWLISTSIZE    32
-#define MAXCVENAMESIZE      17
-#define NUM_VULNERABILITIES 2
+#define MAX_ALLOWLIST_SIZE  32
+#define MAX_CVE_NAME_SIZE   31
 
 typedef int (*cve_vulnerability_check)(bdaddr_t *address);
 
 typedef struct
 {
-    char name[MAXCVENAMESIZE];
+    char name[MAX_CVE_NAME_SIZE];
     cve_vulnerability_check check;
 } cve_check;
 

@@ -85,6 +85,8 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target);
 
 int is_vulnerable_to_cve_2017_0782(bdaddr_t *target);
 
+int is_vulnerable_to_cve_2017_0783_8628(bdaddr_t *target);
+
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target);
 
 int open_bluetooth_device(const int device_id);
