@@ -9,10 +9,11 @@
 #include "logger.h"
 #include "utils.h"
 
-#define MAXFILENAMELEN  255
-#define POLL_INTERVAL   30 // In seconds
-#define PROGRAM_NAME    "bluebornepentesttool"
-#define TRUE            1
+#define MAXFILENAMELEN      255
+#define NUM_VULNERABILITIES 3
+#define POLL_INTERVAL       30 // In seconds
+#define PROGRAM_NAME        "bluebornepentesttool"
+#define TRUE                1
 
 _Noreturn void cleanup(int signal);
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
@@ -22,7 +23,8 @@ int setup_allowlist(char **allowed_addresses, char* allowlist_filename);
 
 const cve_check VULNERABILITIES[] = {
     { .name = "CVE-2017-1000250", .check = &is_vulnerable_to_cve_2017_1000250 },
-    { .name = "CVE-2017-7085", .check = &is_vulnerable_to_cve_2017_0785 }
+    { .name = "CVE-2017-7085", .check = &is_vulnerable_to_cve_2017_0785 },
+    { .name = "CVE-2017-7083 or CVE-2017-8628", .check = &is_vulnerable_to_cve_2017_0783_8628 }
 };
 
 int main(int argc, char**argv) {
@@ -65,8 +67,8 @@ int main(int argc, char**argv) {
     // Allocate memory
     bt_address_list = (bdaddr_t *) malloc(sizeof(bdaddr_t) * MAXNUMBTRESP);
     memset(processed_bt_addresses, 0, MAXNUMBTRESP * BLUETOOTHADDRESSLEN);
-    allowed_addresses = (char **) malloc(sizeof(char *) * MAXALLOWLISTSIZE);
-    for (i = 0; i < MAXALLOWLISTSIZE; i++)
+    allowed_addresses = (char **) malloc(sizeof(char *) * MAX_ALLOWLIST_SIZE);
+    for (i = 0; i < MAX_ALLOWLIST_SIZE; i++)
         allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
 
     num_allowlist = setup_allowlist(allowed_addresses, allowlist_file);
@@ -86,7 +88,7 @@ int main(int argc, char**argv) {
     }
 
     free(bt_address_list);
-    for (i = 0; i < MAXALLOWLISTSIZE; i++);
+    for (i = 0; i < MAX_ALLOWLIST_SIZE; i++);
         free(allowed_addresses[i]);
     free(allowed_addresses);
 

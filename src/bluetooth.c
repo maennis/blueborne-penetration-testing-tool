@@ -261,9 +261,9 @@ int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
     conn_req->ctrl = BNEP_SETUP_CONN_REQ;
     conn_req->uuid_size = sizeof(uint16_t);
     // Set service UUIDs
-    dst_svc_uuid = htons(BNEP_SVC_PANU);
+    dst_svc_uuid = htons(BNEP_SVC_NAP);
     memcpy(packet + sizeof(struct bnep_setup_conn_req), &dst_svc_uuid, sizeof(uint16_t));
-    src_svc_uuid = htons(BNEP_SVC_NAP);
+    src_svc_uuid = htons(BNEP_SVC_PANU);
     memcpy(packet + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
     // If a connection is refused, it could indicates that BNEP connections are
     // rejected and the device is not vulnerable
@@ -300,6 +300,54 @@ int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
 
     close(sd);
     return 0;
+}
+
+int is_vulnerable_to_cve_2017_0783_8628(bdaddr_t *target)
+{
+    struct sockaddr_l2 addr = { 0 };
+    int sd;
+    uint16_t dst_svc_uuid, src_svc_uuid;
+    char buf[BNEP_BUFFER_LEN], *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    struct bnep_setup_conn_req *conn_req;
+    struct bnep_control_rsp *conn_rsp;
+
+    // Return a negative integer indicating failure to create socket
+    if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
+        return CVE_CHECK_ERR;
+    // Set the buffer to all ones to avoid false positives when comparing to BNEP_SUCCESS
+    memset(buf, 0x01, BNEP_BUFFER_LEN);
+    
+    addr.l2_bdaddr = *target;
+    addr.l2_family = AF_BLUETOOTH;
+    addr.l2_psm = htobs(BNEP_PSM);
+    // Create a valid connection request
+    memset(packet, 0x00, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    conn_req = (struct bnep_setup_conn_req *) packet;
+    conn_req->type = BNEP_CONTROL;
+    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
+    conn_req->uuid_size = sizeof(uint16_t);
+    // Set service UUIDs
+    dst_svc_uuid = htons(BNEP_SVC_PANU);
+    memcpy(packet + sizeof(struct bnep_setup_conn_req), &dst_svc_uuid, sizeof(uint16_t));
+    src_svc_uuid = htons(BNEP_SVC_NAP);
+    memcpy(packet + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
+
+    if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+        return CVE_CHECK_ERR;
+    if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
+        return CVE_CHECK_ERR;
+    // Wait for connection response.  If a BNEP connection setup is refused, it could indicate
+    // that BNEP connections with invalid service parirings are rejected and the device is not
+    // vulnerable
+    if (read(sd, buf, BNEP_BUFFER_LEN) <= 0)
+        return 0;
+
+    conn_rsp = (struct bnep_control_rsp *) buf;
+
+    close(sd);
+
+    // If the connection response is not successful, the device is not vulnerable
+    return (conn_rsp->resp != BNEP_SUCCESS) ? 0 : 1;
 }
 
 int is_vulnerable_to_cve_2017_1000250(bdaddr_t *target)
