@@ -16,6 +16,7 @@
 #define TRUE                1
 
 _Noreturn void cleanup(int signal);
+void print_usage(char * invocation);
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
 void set_sigaction(void);
 void setup(void);
@@ -30,23 +31,31 @@ const cve_check VULNERABILITIES[] = {
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
-    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], **allowed_addresses, allowlist_file[MAXFILENAMELEN] = { 0 };
-    int i, responses, num_allowlist, num_processed_bt_address = 0, opt;
-    if (argc < 3)
-    {
-        fprintf(stderr, "Usage: ./%s -a ./path/to/allowlist.txt\n", argv[0]);
-        exit(EXIT_FAILURE);
-    }
+    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], **allowed_addresses, allowlist_file[MAXFILENAMELEN] = "allowlist.txt";
+    int i, responses, num_allowlist, num_processed_bt_address = 0, opt, poll_int = POLL_INTERVAL;
 
-    while((opt = getopt(argc, argv, "a:")) != -1)
+    while((opt = getopt(argc, argv, "a:p:h")) != -1)
     {
         switch (opt)
         {
             case 'a':
                 strcpy(allowlist_file, optarg);
                 break;
+            case 'p':
+                printf("p: %s %d", optarg, atoi(optarg));
+                if (!is_number(optarg))
+                {
+                    perror("Poll value -p must be an integer.\n");
+                    print_usage(argv[0]);
+                    exit(EXIT_FAILURE);
+                }
+                poll_int = atoi(optarg);
+                break;
+            case 'h':
+                print_usage(argv[0]);
+                exit(EXIT_FAILURE);
             default:
-                fprintf(stderr, "Usage: ./%s -a ./path/to/allowlist", argv[0]);
+                print_usage(argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -56,12 +65,14 @@ int main(int argc, char**argv) {
     if ((bt_info.device_id = get_bluetooth_device_id()) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Cannot find bluetooth adapter. Program Exiting");
+        fprintf(stderr, "Cannot find bluetooth adapter.  Program Exiting\n");
         exit(EXIT_FAILURE);
     }
 
     if ((bt_info.hci_socket = open_bluetooth_device(bt_info.device_id)) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Cannot open HCI socket. Program Exiting");
+        fprintf(stderr, "Cannot open HCI socket.  Program Exiting\n");
         exit(EXIT_FAILURE);
     }
     // Allocate memory
@@ -84,22 +95,27 @@ int main(int argc, char**argv) {
             process_device(&btaddr, &num_processed_bt_address, processed_bt_addresses, num_allowlist, allowed_addresses);
         }
         systemlog(LOG_AUTH | LOG_INFO, "Finished processing devices", responses);
-        sleep(POLL_INTERVAL);
+        sleep(poll_int);
     }
-
-    free(bt_address_list);
-    for (i = 0; i < MAX_ALLOWLIST_SIZE; i++);
-        free(allowed_addresses[i]);
-    free(allowed_addresses);
 
     return 0;
 }
 
 _Noreturn void cleanup(int signal)
 {
-    logger_close();
+    fprintf(stdout, "Shutting down %s\n", PROGRAM_NAME);
     systemlog(LOG_AUTH | LOG_INFO, "Shutting down %s", PROGRAM_NAME);
+    logger_close();
     exit(EXIT_SUCCESS);
+}
+
+void print_usage(char *invocation)
+{
+    printf("Usage: ./s [-h] [-a path] [-p interval]\n");
+    printf("    -h      Prints usage.");
+    printf("    -a      Pass in the path to an allowlist.  Defaults to allowlist.txt\n");
+    printf("    -p      Pass in a poll interval in seconds.  Must be a positive integer.\n");
+    printf("            Defaults to 30.\n");
 }
 
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
@@ -159,12 +175,14 @@ int setup_allowlist(char **allowed_addresses, char* allowlist_filename) {
     if ((num_allowlist = load_allowlist(allowlist_filename, allowed_addresses)) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Error reading allowlist %s. Program Exiting", allowlist_filename);
+        fprintf(stderr, "Error reading allowlist %s. Program Exiting\n", allowlist_filename);
         exit(EXIT_FAILURE);
     }
 
     if (!validate_allowlist(allowed_addresses, num_allowlist))
     {
         systemlog(LOG_AUTH | LOG_ERR, "Invalid allowlist %s. Program Exiting", allowlist_filename);
+        fprintf(stderr, "Invalid allowlist %s. Program Exiting\n", allowlist_filename);
         exit(EXIT_FAILURE);
     }
     return num_allowlist;

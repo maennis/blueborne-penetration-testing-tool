@@ -46,13 +46,18 @@ make
 An executable called bluebornepentest will be created under the ./bin directory, and the unit test executable called check_bbptt will be created under the ./tests directory.
 
 ## Running
-The BBPTT can be run as follows:
+Usage: `./bluebornepentest [-h] [-a ./path/to/allowlist] [-p poll_interval]`
+
+|Flag|Description|Default|
+|----|-----------|-------|
+|`-h`|Prints usage|N/A|
+|`-a ./path/to/allowlist`|Full or relative path to an allowlist file.|allowlist.txt|
+|`-p poll_interval`|Poll interval in seconds.  Must be a positive integer|30|
+
+After running make from the root of the project, unit tests can be run as follows:
 ```
-./bin/bluebornepentest -a ./path/to/allowlist.txt
-```
-Unit tests can be run as follows:
-```
-./tests/check_bbptt
+cd tests
+./check_bbptt
 ```
 ## Docker
 Dockerfiles are provided with the BBPTT in order to facilitate the creation and set up of test environments that are still vulnerable to the BlueBorne exploits.

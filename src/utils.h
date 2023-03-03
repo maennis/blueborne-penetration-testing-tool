@@ -14,6 +14,8 @@ typedef struct
     cve_vulnerability_check check;
 } cve_check;
 
+int is_number(char *str);
+
 int load_allowlist(char *filename, char **allowed_addresses);
 
 int validate_allowlist(char **allowed_addresses, int num_addresses);
