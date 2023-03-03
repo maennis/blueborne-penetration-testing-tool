@@ -87,6 +87,7 @@ set(LIB_SOURCES
 ${BBPTT_SOURCE_DIR}/src/logger.c
 ${BBPTT_SOURCE_DIR}/src/bluetooth.c
 ${BBPTT_SOURCE_DIR}/src/utils.c
+${BBPTT_SOURCE_DIR}/src/database.c
 )
 
 set(MAIN_SOURCES
@@ -98,12 +99,13 @@ set(HEADERS
   ${BBPTT_SOURCE_DIR}/src/logger.h
   ${BBPTT_SOURCE_DIR}/src/bluetooth.h
   ${BBPTT_SOURCE_DIR}/src/utils.h
+  ${BBPTT_SOURCE_DIR}/src/database.h
 )
 
 add_library(bbptt STATIC ${LIB_SOURCES} ${HEADERS})
 
 add_executable(bluebornepentest ${HEADERS} ${MAIN_SOURCES})
-target_link_libraries(bluebornepentest bbptt bluetooth)
+target_link_libraries(bluebornepentest bbptt bluetooth ${SQLITE3_LIBRARIES})
 
 install(TARGETS bbptt
   RUNTIME DESTINATION bin
