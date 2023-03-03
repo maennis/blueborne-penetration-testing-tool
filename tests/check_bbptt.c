@@ -219,6 +219,43 @@ START_TEST(test_create_svc_attr_search_pdu_cont)
 }
 END_TEST
 
+START_TEST(test_create_svc_search_pdu_no_cont)
+{
+    char *pdu;
+    uint8_t cont_len = 0x00, pdu_id = SDP_SVC_SEARCH_REQ;
+    sdp_pdu_hdr_t *pdu_header;
+    size_t len = SDP_PDU_SVC_PARAM_LEN + sizeof(sdp_pdu_hdr_t);
+
+    pdu = create_sdp_svc_search_pdu(SVC_L2CAP, 0x00, cont_len);
+    // Check header values
+    pdu_header = (sdp_pdu_hdr_t *) pdu;
+    ck_assert_uint_eq(pdu_header->pdu_id, pdu_id);
+    ck_assert_uint_eq(pdu_header->plen, htons(SDP_PDU_SVC_PARAM_LEN));
+
+    // Check the continuation state is set to null
+    ck_assert_mem_eq(&(pdu[len - 1]), &cont_len, 1);
+}
+END_TEST
+
+START_TEST(test_create_svc_search_pdu_cont)
+{
+    uint8_t cont_len = 2, pdu_id = SDP_SVC_SEARCH_REQ;
+    char *pdu, cont_state_s[3] = { 0 };
+    sdp_pdu_hdr_t *pdu_header;
+    size_t len = SDP_PDU_ATTR_PARAM_LEN + sizeof(sdp_pdu_hdr_t);
+    sdp_cont_state_bluez_t cont_state = { 0 };
+
+    pdu = create_sdp_svc_search_pdu(SVC_L2CAP, cont_state_s, cont_len);
+    // Check header values
+    pdu_header = (sdp_pdu_hdr_t *) pdu;
+    ck_assert_uint_eq(pdu_header->pdu_id, pdu_id);
+    ck_assert_uint_eq(pdu_header->plen, htons(SDP_PDU_SVC_PARAM_LEN + cont_len));
+
+    // Check the continuation state matches the string that was created
+    ck_assert_mem_eq(&(pdu[len - 1]), cont_state_s, cont_len);
+}
+END_TEST
+
 Suite * bbptt_suite(void)
 {
     Suite *s;
@@ -234,7 +271,9 @@ Suite * bbptt_suite(void)
             *tc_not_in_allowlist,
             *tc_allowlist_e2e,
             *tc_create_svc_attr_search,
-            *tc_create_svc_attr_search_cont;
+            *tc_create_svc_attr_search_cont,
+            *tc_create_svc_search,
+            *tc_create_svc_search_cont;
     s = suite_create("BBPTT");
 
     // Set up
@@ -253,6 +292,8 @@ Suite * bbptt_suite(void)
     tc_allowlist_e2e = tcase_create("allowlist e2e");
     tc_create_svc_attr_search = tcase_create("create sdp svc attr search pdu");
     tc_create_svc_attr_search_cont = tcase_create("create sdp svc attr search cont pdu");
+    tc_create_svc_search = tcase_create("create sdp svc search pdu");
+    tc_create_svc_search_cont = tcase_create("create sdp svc  search cont pdu");
 
     tcase_add_test(tc_setup, test_logger_run);
     suite_add_tcase(s, tc_setup);
@@ -280,6 +321,10 @@ Suite * bbptt_suite(void)
     suite_add_tcase(s, tc_create_svc_attr_search);
     tcase_add_test(tc_create_svc_attr_search_cont, test_create_svc_attr_search_pdu_cont);
     suite_add_tcase(s, tc_create_svc_attr_search_cont);
+    tcase_add_test(tc_create_svc_search, test_create_svc_search_pdu_no_cont);
+    suite_add_tcase(s, tc_create_svc_search);
+    tcase_add_test(tc_create_svc_search_cont, test_create_svc_search_pdu_cont);
+    suite_add_tcase(s, tc_create_svc_search_cont);
 
     return s;
 }
