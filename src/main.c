@@ -89,11 +89,6 @@ int main(int argc, char**argv) {
         sleep(POLL_INTERVAL);
     }
 
-    free(bt_address_list);
-    for (i = 0; i < MAX_ALLOWLIST_SIZE; i++);
-        free(allowed_addresses[i]);
-    free(allowed_addresses);
-
     return 0;
 }
 
