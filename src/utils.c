@@ -1,8 +1,18 @@
+#include <ctype.h>
 #include <string.h>
 #include <sys/file.h>
 
 #include "utils.h"
 #include "bluetooth.h"
+
+int is_number(char * str)
+{
+    int i, len = strlen(str);
+    for (i = 0; i < len; i++)
+        if (!isdigit(str[i]))
+            return 0;
+    return 1;
+}
 
 int load_allowlist(char *filename, char **allowed_addresses)
 {
