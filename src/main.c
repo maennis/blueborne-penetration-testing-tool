@@ -46,7 +46,7 @@ int main(int argc, char**argv) {
                 strcpy(allowlist_file, optarg);
                 break;
             default:
-                fprintf(stderr, "Usage: ./%s -a ./path/to/allowlist", argv[0]);
+                fprintf(stderr, "Usage: ./%s -a ./path/to/allowlist\n", argv[0]);
                 exit(EXIT_FAILURE);
         }
     }
@@ -56,12 +56,14 @@ int main(int argc, char**argv) {
     if ((bt_info.device_id = get_bluetooth_device_id()) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Cannot find bluetooth adapter. Program Exiting");
+        fprintf(stderr, "Cannot find bluetooth adapter.  Program Exiting\n");
         exit(EXIT_FAILURE);
     }
 
     if ((bt_info.hci_socket = open_bluetooth_device(bt_info.device_id)) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Cannot open HCI socket. Program Exiting");
+        fprintf(stderr, "Cannot open HCI socket.  Program Exiting\n");
         exit(EXIT_FAILURE);
     }
     // Allocate memory
@@ -97,8 +99,9 @@ int main(int argc, char**argv) {
 
 _Noreturn void cleanup(int signal)
 {
-    logger_close();
+    fprintf(stdout, "Shutting down %s\n", PROGRAM_NAME);
     systemlog(LOG_AUTH | LOG_INFO, "Shutting down %s", PROGRAM_NAME);
+    logger_close();
     exit(EXIT_SUCCESS);
 }
 
@@ -159,12 +162,14 @@ int setup_allowlist(char **allowed_addresses, char* allowlist_filename) {
     if ((num_allowlist = load_allowlist(allowlist_filename, allowed_addresses)) < 0)
     {
         systemlog(LOG_AUTH | LOG_ERR, "Error reading allowlist %s. Program Exiting", allowlist_filename);
+        fprintf(stderr, "Error reading allowlist %s. Program Exiting\n", allowlist_filename);
         exit(EXIT_FAILURE);
     }
 
     if (!validate_allowlist(allowed_addresses, num_allowlist))
     {
         systemlog(LOG_AUTH | LOG_ERR, "Invalid allowlist %s. Program Exiting", allowlist_filename);
+        fprintf(stderr, "Invalid allowlist %s. Program Exiting\n", allowlist_filename);
         exit(EXIT_FAILURE);
     }
     return num_allowlist;
