@@ -21,6 +21,7 @@ config.h
 
 # Test build files
 tests/check_bbptt
+tests/res/ouilookup.db
 
 # IDE Files
 .vscode/*

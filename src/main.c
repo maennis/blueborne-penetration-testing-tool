@@ -6,9 +6,11 @@
 
 // Custom Imports
 #include "bluetooth.h"
+#include "database.h"
 #include "logger.h"
 #include "utils.h"
 
+#define DB_NAME             "ouilookup.db"
 #define MAXFILENAMELEN      255
 #define NUM_VULNERABILITIES 3
 #define POLL_INTERVAL       30 // In seconds
@@ -28,6 +30,8 @@ const cve_check VULNERABILITIES[] = {
     { .name = "CVE-2017-7083 or CVE-2017-8628", .check = &is_vulnerable_to_cve_2017_0783_8628 }
 };
 
+sqlite3 *db;
+
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
@@ -42,7 +46,6 @@ int main(int argc, char**argv) {
                 strcpy(allowlist_file, optarg);
                 break;
             case 'p':
-                printf("p: %s %d", optarg, atoi(optarg));
                 if (!is_number(optarg))
                 {
                     perror("Poll value -p must be an integer.\n");
@@ -106,6 +109,7 @@ _Noreturn void cleanup(int signal)
     fprintf(stdout, "Shutting down %s\n", PROGRAM_NAME);
     systemlog(LOG_AUTH | LOG_INFO, "Shutting down %s", PROGRAM_NAME);
     logger_close();
+    close_db(db);
     exit(EXIT_SUCCESS);
 }
 
@@ -121,7 +125,7 @@ void print_usage(char *invocation)
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
 {
     int i, res, patched = 1;
-    char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 };
+    char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 }, vendor[MAX_VENDOR_LEN] = { 0 };
     ba2str(address, btaddr_s);
     for (i = 0; i < *processed_bt_addresses; i++)
         if (strcmp(btaddr_s, processed_addresses[i]) == 0)
@@ -134,6 +138,15 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
         return;
     }
     systemlog(LOG_AUTH | LOG_INFO, "Processing device with address %s.", btaddr_s);
+    if (get_manuafacturer_from_oui(db, btaddr_s, vendor))
+    {
+        systemlog(LOG_AUTH | LOG_INFO, "Device manufacturer: %s.", vendor);
+    } else
+    {
+        systemlog(LOG_AUTH | LOG_INFO, "Unable to determine device manufacturer based on OUI.");
+    }
+
+
     for (i = 0; i < NUM_VULNERABILITIES; i++)
     {
         res = VULNERABILITIES[i].check(address);
@@ -167,6 +180,11 @@ void setup(void)
     set_sigaction();
     logger_init(PROGRAM_NAME);
     systemlog(LOG_AUTH | LOG_INFO, "%s started", PROGRAM_NAME);
+    if ((db = open_db(DB_NAME)) == NULL)
+    {
+        systemlog(LOG_ERR, "Error opening the OUI lookup database.");
+        cleanup(SIGQUIT);
+    }
 }
 
 int setup_allowlist(char **allowed_addresses, char* allowlist_filename) {
