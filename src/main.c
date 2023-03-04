@@ -21,7 +21,7 @@ _Noreturn void cleanup(int signal);
 void print_usage(char * invocation);
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
 void set_sigaction(void);
-void setup(void);
+void setup(char *db_filename);
 int setup_allowlist(char **allowed_addresses, char* allowlist_filename);
 
 const cve_check VULNERABILITIES[] = {
@@ -35,15 +35,21 @@ sqlite3 *db;
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
-    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], **allowed_addresses, allowlist_file[MAXFILENAMELEN] = "allowlist.txt";
+    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN],
+            **allowed_addresses,
+            allowlist_file[MAXFILENAMELEN] = "allowlist.txt",
+            db_filename[MAXFILENAMELEN] = DB_NAME;
     int i, responses, num_allowlist, num_processed_bt_address = 0, opt, poll_int = POLL_INTERVAL;
 
-    while((opt = getopt(argc, argv, "a:p:h")) != -1)
+    while((opt = getopt(argc, argv, "a:d:p:h")) != -1)
     {
         switch (opt)
         {
             case 'a':
                 strcpy(allowlist_file, optarg);
+                break;
+            case 'd':
+                strcpy(db_filename, optarg);
                 break;
             case 'p':
                 if (!is_number(optarg))
@@ -63,7 +69,7 @@ int main(int argc, char**argv) {
         }
     }
 
-    setup();
+    setup(db_filename);
 
     if ((bt_info.device_id = get_bluetooth_device_id()) < 0)
     {
@@ -115,9 +121,10 @@ _Noreturn void cleanup(int signal)
 
 void print_usage(char *invocation)
 {
-    printf("Usage: ./s [-h] [-a path] [-p interval]\n");
+    printf("Usage: ./s [-h] [-a allowlist] [-d database] [-p interval]\n");
     printf("    -h      Prints usage.");
     printf("    -a      Pass in the path to an allowlist.  Defaults to allowlist.txt\n");
+    printf("    -d      Pass in the path to the database.  Defaults to ouilookup.db\n");
     printf("    -p      Pass in a poll interval in seconds.  Must be a positive integer.\n");
     printf("            Defaults to 30.\n");
 }
@@ -175,12 +182,12 @@ void set_sigaction(void)
         systemlog(LOG_AUTH | LOG_ERR, "Error setting signact");
 }
 
-void setup(void)
+void setup(char * db_filename)
 {
     set_sigaction();
     logger_init(PROGRAM_NAME);
     systemlog(LOG_AUTH | LOG_INFO, "%s started", PROGRAM_NAME);
-    if ((db = open_db(DB_NAME)) == NULL)
+    if ((db = open_db(db_filename)) == NULL)
     {
         systemlog(LOG_ERR, "Error opening the OUI lookup database.");
         cleanup(SIGQUIT);
