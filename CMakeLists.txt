@@ -7,6 +7,12 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 # Set build features
 set(CMAKE_BUILD_TYPE Debug)
 
+set (DATABASE "ouilookup.db")
+# Check to see if SQLite3 is installed
+find_package(SQLite3 REQUIRED)
+include_directories(${SQLITE3_INCLUDE_DIRS})
+link_directories(${SQLITE3_LIBRARIES})
+
 ###############################################################################
 include(CheckCSourceCompiles)
 include(CheckCSourceRuns)
@@ -76,12 +82,8 @@ add_test(NAME check_bbptt COMMAND check_bbptt)
 
 set (CMAKE_BINARY_DIR ${BBPTT_SOURCE_DIR}/bin)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set (DATABASE "ouilookup.db")
 
-# Check to see if SQLite3 is installed
-find_package(SQLite3 REQUIRED)
-include_directories(${SQLITE3_INCLUDE_DIRS})
-link_directories(${SQLITE3_LIBRARIES})
+
 
 set(LIB_SOURCES
 ${BBPTT_SOURCE_DIR}/src/logger.c
