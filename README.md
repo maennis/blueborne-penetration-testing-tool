@@ -83,7 +83,7 @@ cd ./docker/ubuntu
 docker build -t bbptt-env-ubuntu --no-cache=true .
 
 # Run the container in interactive mode
-docker run --rm --net=host --privileged -it bbptt-env-ubuntu:latest
+docker run --rm --net=host --privileged -it --mount type=bind,src=/var/run/dbus/system_bus_socket,target=/var/run/dbus/system_bus_socket  bbptt-env-ubuntu:latest
 
 ```
 The `./docker/ubuntu/docker_entrypoint.sh` script starts the bluetooth service on the Ubuntu container.
