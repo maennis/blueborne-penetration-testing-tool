@@ -15,7 +15,8 @@
 #define BNEP_ETH_CMP_W_EXTENSION    0x82
 #define BNEP_ETH_OVERFLOW_LEN       6
 #define BNEP_OVERFLOW_PAYLOAD_LEN   8
-#define BNEP_OVERFLOW_LOOP_LIMIT    1000
+#define BNEP_OVERFLOW_LOOP_LIMIT    2000
+#define BNEP_OVERFLOW_TIMEOUT       5
 #define CVE_CHECK_ERR               -1
 #define DEVICENAMELEN               248
 #define INQUIRYLEN                  15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length

