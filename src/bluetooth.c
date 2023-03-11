@@ -225,7 +225,7 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
 
     // Create a connection request with a UUID size of zero
     conn_req = (struct bnep_setup_conn_req *) packet;
-    conn_req->type = BNEP_CONTROL_W_EXTENSION;
+    conn_req->type = BNEP_EXT_HEADER + BNEP_CONTROL;
     conn_req->ctrl = BNEP_SETUP_CONN_REQ;
     conn_req->uuid_size = 0;
     // Copy overflow payload
@@ -288,7 +288,7 @@ int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
     // Zero out the memory
     memset(ovrflw_pkt, 0, BNEP_ETH_OVERFLOW_LEN);
     // Set BNEP packet type
-    ovrflw_pkt[0] = BNEP_ETH_CMP_W_EXTENSION;
+    ovrflw_pkt[0] = BNEP_EXT_HEADER + BNEP_COMPRESSED;
     // Set the extension length and overflow payload
     ovrflw_pkt[4] = 0x0A;
     ovrflw_pkt[5] = 0x10;
@@ -474,8 +474,8 @@ int make_hci_inquiry(bdaddr_t **addr_list, const struct bluetooth_connection_inf
 {
     int inqlen, max_num_resp, flags, num_resp, i;
     inquiry_info *inqinfo = NULL;
-    inqlen = INQUIRYLEN;
-    max_num_resp = MAXNUMBTRESP;
+    inqlen = HCI_INQUIRY_LEN;
+    max_num_resp = MAX_NUM_HCI_RESP;
     // Allocate memory for maximum number of potential devices
     inqinfo = (inquiry_info*)malloc(max_num_resp * sizeof(inquiry_info));
 
