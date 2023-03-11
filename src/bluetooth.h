@@ -11,16 +11,15 @@
 
 #define BLUETOOTHADDRESSLEN         19
 #define BNEP_BUFFER_LEN             255
-#define BNEP_CONTROL_W_EXTENSION    0x81
-#define BNEP_ETH_CMP_W_EXTENSION    0x82
 #define BNEP_ETH_OVERFLOW_LEN       6
 #define BNEP_OVERFLOW_PAYLOAD_LEN   8
-#define BNEP_OVERFLOW_LOOP_LIMIT    1000
+#define BNEP_OVERFLOW_LOOP_LIMIT    2000
+#define BNEP_OVERFLOW_TIMEOUT       5
 #define CVE_CHECK_ERR               -1
 #define DEVICENAMELEN               248
-#define INQUIRYLEN                  15 // This value is multiplied by 1.28 seconds to get the hci_inquiry length
+#define HCI_INQUIRY_LEN             15
 #define L2CAP_SVC_UUID_LEN          4
-#define MAXNUMBTRESP                255
+#define MAX_NUM_HCI_RESP            255
 #define MTU                         50
 #define SDP_BLUEZ_CONT_STATE_LEN    8
 #define SDP_PDU_SVC_PARAM_LEN       8

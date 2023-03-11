@@ -19,7 +19,7 @@
 
 _Noreturn void cleanup(int signal);
 void print_usage(char * invocation);
-void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
+void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAX_NUM_HCI_RESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses);
 void set_sigaction(void);
 void setup(char *db_filename);
 int setup_allowlist(char **allowed_addresses, char* allowlist_filename);
@@ -35,7 +35,7 @@ sqlite3 *db;
 int main(int argc, char**argv) {
     struct bluetooth_connection_info bt_info;
     bdaddr_t *bt_address_list, btaddr;
-    char processed_bt_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN],
+    char processed_bt_addresses[MAX_NUM_HCI_RESP][BLUETOOTHADDRESSLEN],
             **allowed_addresses,
             allowlist_file[MAXFILENAMELEN] = "allowlist.txt",
             db_filename[MAXFILENAMELEN] = DB_NAME;
@@ -85,8 +85,8 @@ int main(int argc, char**argv) {
         exit(EXIT_FAILURE);
     }
     // Allocate memory
-    bt_address_list = (bdaddr_t *) malloc(sizeof(bdaddr_t) * MAXNUMBTRESP);
-    memset(processed_bt_addresses, 0, MAXNUMBTRESP * BLUETOOTHADDRESSLEN);
+    bt_address_list = (bdaddr_t *) malloc(sizeof(bdaddr_t) * MAX_NUM_HCI_RESP);
+    memset(processed_bt_addresses, 0, MAX_NUM_HCI_RESP * BLUETOOTHADDRESSLEN);
     allowed_addresses = (char **) malloc(sizeof(char *) * MAX_ALLOWLIST_SIZE);
     for (i = 0; i < MAX_ALLOWLIST_SIZE; i++)
         allowed_addresses[i] = (char *) malloc(sizeof(char) * BLUETOOTHADDRESSLEN);
@@ -129,7 +129,7 @@ void print_usage(char *invocation)
     printf("            Defaults to 30.\n");
 }
 
-void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAXNUMBTRESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
+void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAX_NUM_HCI_RESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
 {
     int i, res, patched = 1;
     char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 }, vendor[MAX_VENDOR_LEN] = { 0 };
