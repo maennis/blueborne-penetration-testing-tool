@@ -12,7 +12,6 @@
 
 #define DB_NAME             "ouilookup.db"
 #define MAXFILENAMELEN      255
-#define NUM_VULNERABILITIES 3
 #define POLL_INTERVAL       30 // In seconds
 #define PROGRAM_NAME        "bluebornepentesttool"
 #define TRUE                1
@@ -131,7 +130,7 @@ void print_usage(char *invocation)
 
 void process_device(bdaddr_t *address, int *processed_bt_addresses, char processed_addresses[MAX_NUM_HCI_RESP][BLUETOOTHADDRESSLEN], int num_allowlist, char **allowed_addresses)
 {
-    int i, res, patched = 1;
+    int i, res, patched = 1, len = sizeof(VULNERABILITIES) / sizeof(cve_check);
     char btaddr_s[BLUETOOTHADDRESSLEN] = { 0 }, vendor[MAX_VENDOR_LEN] = { 0 };
     ba2str(address, btaddr_s);
     for (i = 0; i < *processed_bt_addresses; i++)
@@ -154,7 +153,7 @@ void process_device(bdaddr_t *address, int *processed_bt_addresses, char process
     }
 
 
-    for (i = 0; i < NUM_VULNERABILITIES; i++)
+    for (i = 0; i < len; i++)
     {
         res = VULNERABILITIES[i].check(address);
         if (res < 0)
