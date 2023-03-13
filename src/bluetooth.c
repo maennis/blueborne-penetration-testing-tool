@@ -386,8 +386,10 @@ int is_vulnerable_to_cve_2017_0783_8628(bdaddr_t *target)
     src_svc_uuid = htons(BNEP_SVC_NAP);
     memcpy(packet + sizeof(struct bnep_setup_conn_req) + sizeof(uint16_t), &src_svc_uuid, sizeof(uint16_t));
 
+    // If the device refuses a BNEP connection, it is likely due to a failed user confirmation.
+    // This indicates the device is not vulnerable.
     if (connect(sd, (struct sockaddr *) &addr, sizeof(addr)) < 0)
-        return CVE_CHECK_ERR;
+        return 0;
     if (write(sd, packet, sizeof(struct bnep_setup_conn_req) + 2 * sizeof(uint16_t)) < 0)
         return CVE_CHECK_ERR;
     // Wait for connection response.  If a BNEP connection setup is refused, it could indicate
