@@ -120,8 +120,8 @@ _Noreturn void cleanup(int signal)
 
 void print_usage(char *invocation)
 {
-    printf("Usage: ./s [-h] [-a allowlist] [-d database] [-p interval]\n");
-    printf("    -h      Prints usage.");
+    printf("Usage: %s [-h] [-a allowlist] [-d database] [-p interval]\n", invocation);
+    printf("    -h      Prints usage.\n");
     printf("    -a      Pass in the path to an allowlist.  Defaults to allowlist.txt\n");
     printf("    -d      Pass in the path to the database.  Defaults to ouilookup.db\n");
     printf("    -p      Pass in a poll interval in seconds.  Must be a positive integer.\n");
